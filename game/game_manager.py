@@ -74,6 +74,7 @@ class GameManager:
         self.event_applied_continent = None
         self.event_result = None  # Dados do resultado do evento
         self.event_finished = False  # Indica se o evento já terminou e aguarda "Passar Turno"
+        self.showing_turn_confirmation = False  # Mostra confirmação de passar turno
         
         # Preparação de combate
         self.preparing_combat = False
@@ -174,6 +175,11 @@ class GameManager:
     
     def _handle_click(self, pos):
         """Trata cliques do mouse"""
+        # Se está mostrando confirmação de passar turno
+        if self.showing_turn_confirmation:
+            self._handle_turn_confirmation_click(pos)
+            return
+        
         # Se está mostrando resultados dos dados
         if self.showing_dice_results:
             self._handle_dice_results_click(pos)
@@ -241,10 +247,9 @@ class GameManager:
                 self.selected_attack_continent = None
         
         elif self.turn_manager.is_event_phase():
-            # Se o evento já terminou, passa o turno
+            # Se o evento já terminou, mostra confirmação antes de passar o turno
             if self.event_finished:
-                self.event_finished = False
-                self._next_turn()
+                self.showing_turn_confirmation = True
             else:
                 # Carrega eventos do jogador atual
                 current_player = self.turn_manager.get_current_player()
@@ -253,6 +258,19 @@ class GameManager:
                 # Inicia roleta
                 self.showing_roulette = True
                 self.roulette.start_spin()
+    
+    def _handle_turn_confirmation_click(self, pos):
+        """Trata cliques na confirmação de passar turno"""
+        action = self.ui_manager.handle_turn_confirmation_click(pos)
+        
+        if action == "yes":
+            # Confirma passar o turno
+            self.showing_turn_confirmation = False
+            self.event_finished = False
+            self._next_turn()
+        elif action == "no":
+            # Cancela e volta ao jogo
+            self.showing_turn_confirmation = False
     
     def _handle_right_click(self):
         """Trata clique com botão direito"""
@@ -730,6 +748,10 @@ class GameManager:
                 self.winner.name
             )
             self.ui_manager.render_game_over(self.winner.name, total_control)
+        
+        # Confirmação de passar turno
+        if self.showing_turn_confirmation:
+            self.ui_manager.render_turn_confirmation()
         
         # Atualiza tela
         pygame.display.flip()

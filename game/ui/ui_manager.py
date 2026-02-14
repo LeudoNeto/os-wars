@@ -1049,3 +1049,68 @@ class UIManager:
                     return f"reroll_defender_{dice_index}"
         
         return None
+    
+    def render_turn_confirmation(self):
+        """Renderiza popup de confirmação para passar turno"""
+        # Overlay semi-transparente
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Painel central
+        panel_width = 400
+        panel_height = 200
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, BLACK, panel_rect)
+        pygame.draw.rect(self.screen, WHITE, panel_rect, 3)
+        
+        # Título
+        title = self.font_large.render("Confirmar", True, WHITE)
+        title_rect = title.get_rect(center=(panel_x + panel_width//2, panel_y + 40))
+        self.screen.blit(title, title_rect)
+        
+        # Texto de confirmação
+        text = self.font_medium.render("Deseja realmente passar o turno?", True, WHITE)
+        text_rect = text.get_rect(center=(panel_x + panel_width//2, panel_y + 90))
+        self.screen.blit(text, text_rect)
+        
+        # Botões
+        button_width = 120
+        button_height = 40
+        button_y = panel_y + panel_height - 60
+        
+        # Botão SIM (verde)
+        yes_button_x = panel_x + (panel_width // 2) - button_width - 10
+        self.yes_button_rect = pygame.Rect(yes_button_x, button_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (0, 150, 0), self.yes_button_rect)
+        pygame.draw.rect(self.screen, WHITE, self.yes_button_rect, 2)
+        
+        yes_text = self.font_medium.render("Sim", True, WHITE)
+        yes_text_rect = yes_text.get_rect(center=self.yes_button_rect.center)
+        self.screen.blit(yes_text, yes_text_rect)
+        
+        # Botão NÃO (vermelho)
+        no_button_x = panel_x + (panel_width // 2) + 10
+        self.no_button_rect = pygame.Rect(no_button_x, button_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (150, 0, 0), self.no_button_rect)
+        pygame.draw.rect(self.screen, WHITE, self.no_button_rect, 2)
+        
+        no_text = self.font_medium.render("Não", True, WHITE)
+        no_text_rect = no_text.get_rect(center=self.no_button_rect.center)
+        self.screen.blit(no_text, no_text_rect)
+    
+    def handle_turn_confirmation_click(self, pos):
+        """
+        Trata cliques na confirmação de passar turno
+        
+        Returns:
+            "yes" se clicou em Sim, "no" se clicou em Não, None caso contrário
+        """
+        if hasattr(self, 'yes_button_rect') and self.yes_button_rect.collidepoint(pos):
+            return "yes"
+        if hasattr(self, 'no_button_rect') and self.no_button_rect.collidepoint(pos):
+            return "no"
+        return None
