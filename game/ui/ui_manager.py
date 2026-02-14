@@ -175,61 +175,100 @@ class UIManager:
         """
         return self.button_rect.collidepoint(mouse_pos)
     
-    def render_combat_result(self, combat_result):
+    def render_combat_result(self, combat_result, animation_elapsed, animation_duration):
         """
-        Renderiza o resultado de um combate.
+        Renderiza o resultado de um combate com dados ordenados e gráfico de pizza animado.
         
         Args:
             combat_result: Dicionário com resultado do combate
+            animation_elapsed: Tempo decorrido da animação
+            animation_duration: Duração total da animação
         """
         if not combat_result:
             return
         
-        # Cria painel central
-        panel_width = 500
-        panel_height = 400
-        panel_x = (WINDOW_WIDTH - panel_width) // 2
-        panel_y = (WINDOW_HEIGHT - panel_height) // 2
-        
-        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        # Calcula progresso da animação (0.0 a 1.0)
+        animation_progress = min(1.0, animation_elapsed / animation_duration)
         
         # Fundo semi-transparente
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
         
-        # Painel
+        # Painel central maior
+        panel_width = 900
+        panel_height = 600
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
         pygame.draw.rect(self.screen, BLACK, panel_rect)
         pygame.draw.rect(self.screen, WHITE, panel_rect, 3)
         
         # Título
         title = self.font_large.render("Resultado do Combate", True, WHITE)
-        title_rect = title.get_rect(center=(panel_x + panel_width//2, panel_y + 30))
+        title_rect = title.get_rect(center=(panel_x + panel_width//2, panel_y + 40))
         self.screen.blit(title, title_rect)
         
-        y = panel_y + 80
+        # Continente
+        continent_text = self.font_medium.render(
+            f"Continente: {combat_result['defending_continent']}", 
+            True, WHITE
+        )
+        continent_rect = continent_text.get_rect(center=(panel_x + panel_width//2, panel_y + 80))
+        self.screen.blit(continent_text, continent_rect)
         
-        # Informações do combate
-        lines = [
-            f"Atacante: {combat_result['attacker']}",
-            f"Dados: {combat_result['attacker_dice']}",
-            "",
-            f"Defensor: {combat_result['defender']}",
-            f"Dados: {combat_result['defender_dice']}",
-            "",
-            f"Vitórias do Atacante: {combat_result['attacker_wins']}",
-            f"Controle Ganho: {combat_result['control_gained']}%",
-            "",
-            f"Novo controle do {combat_result['attacker']}: {combat_result['new_attacker_control']}%",
-            f"Novo controle do {combat_result['defender']}: {combat_result['new_defender_control']}%"
-        ]
+        # Posição dos dados (esquerda e direita)
+        left_x = panel_x + 120
+        right_x = panel_x + panel_width - 120
+        dice_y_start = panel_y + 180
         
-        for line in lines:
-            if line:
-                text = self.font_small.render(line, True, WHITE)
-                text_rect = text.get_rect(center=(panel_x + panel_width//2, y))
-                self.screen.blit(text, text_rect)
-            y += 25
+        # Renderiza dados do atacante (esquerda) - ordenados em ordem decrescente
+        attacker_label = self.font_medium.render(
+            combat_result['attacker'], 
+            True, combat_result['attacker_color']
+        )
+        attacker_label_rect = attacker_label.get_rect(center=(left_x, panel_y + 130))
+        self.screen.blit(attacker_label, attacker_label_rect)
+        
+        self._render_sorted_dice_vertical(
+            left_x, dice_y_start,
+            combat_result['attacker_dice'],
+            combat_result['attacker_color']
+        )
+        
+        # Renderiza dados do defensor (direita) - ordenados em ordem decrescente
+        defender_label = self.font_medium.render(
+            combat_result['defender'], 
+            True, combat_result['defender_color']
+        )
+        defender_label_rect = defender_label.get_rect(center=(right_x, panel_y + 130))
+        self.screen.blit(defender_label, defender_label_rect)
+        
+        self._render_sorted_dice_vertical(
+            right_x, dice_y_start,
+            combat_result['defender_dice'],
+            combat_result['defender_color']
+        )
+        
+        # Gráfico de pizza animado no centro
+        pie_center_x = panel_x + panel_width // 2
+        pie_center_y = panel_y + 320
+        pie_radius = 100
+        
+        self._render_animated_pie_chart(
+            pie_center_x, pie_center_y, pie_radius,
+            combat_result['control_before'],
+            combat_result['control_after'],
+            animation_progress
+        )
+        
+        # Resultado do combate
+        result_y = panel_y + 480
+        result_text = f"Vitórias do Atacante: {combat_result['attacker_wins']} | Controle Ganho: {combat_result['control_gained']}%"
+        result = self.font_small.render(result_text, True, WHITE)
+        result_rect = result.get_rect(center=(panel_x + panel_width//2, result_y))
+        self.screen.blit(result, result_rect)
         
         # Instrução
         instruction = self.font_small.render(
@@ -239,6 +278,87 @@ class UIManager:
             center=(panel_x + panel_width//2, panel_y + panel_height - 30)
         )
         self.screen.blit(instruction, instruction_rect)
+    
+    def _render_sorted_dice_vertical(self, center_x, start_y, dice_values, color):
+        """Renderiza dados verticalmente já ordenados em ordem decrescente"""
+        dice_size = 60
+        spacing = 15
+        
+        for i, value in enumerate(dice_values):
+            y = start_y + i * (dice_size + spacing)
+            self._draw_3d_die(center_x, y, dice_size, value, color, angle=0, scale=1.0)
+    
+    def _render_animated_pie_chart(self, center_x, center_y, radius, 
+                                   control_before, control_after, progress):
+        """Renderiza gráfico de pizza com animação de transição"""
+        from game.utils.constants import PLAYER_COLORS
+        import math
+        
+        # Interpola entre controle antes e depois
+        current_control = {}
+        for player in control_before:
+            before_val = control_before[player]
+            after_val = control_after[player]
+            current_control[player] = before_val + (after_val - before_val) * progress
+        
+        # Normaliza para somar 100
+        total = sum(current_control.values())
+        if total > 0:
+            current_control = {p: (v / total) * 100 for p, v in current_control.items()}
+        
+        # Desenha o gráfico de pizza
+        start_angle = 0
+        for player, percentage in sorted(current_control.items(), key=lambda x: x[1], reverse=True):
+            if percentage > 0:
+                color = PLAYER_COLORS.get(player, (128, 128, 128))
+                angle = (percentage / 100.0) * 360
+                
+                # Desenha fatia
+                self._draw_pie_slice(
+                    center_x, center_y, radius,
+                    start_angle, start_angle + angle,
+                    color
+                )
+                
+                # Desenha label se a fatia for grande o suficiente
+                if percentage >= 5:
+                    mid_angle = math.radians(start_angle + angle / 2 - 90)
+                    label_distance = radius * 0.7
+                    label_x = center_x + label_distance * math.cos(mid_angle)
+                    label_y = center_y + label_distance * math.sin(mid_angle)
+                    
+                    label_text = self.font_small.render(f"{percentage:.0f}%", True, WHITE)
+                    label_rect = label_text.get_rect(center=(label_x, label_y))
+                    self.screen.blit(label_text, label_rect)
+                
+                start_angle += angle
+        
+        # Borda do círculo
+        pygame.draw.circle(self.screen, WHITE, (center_x, center_y), radius, 3)
+    
+    def _draw_pie_slice(self, center_x, center_y, radius, start_angle, end_angle, color):
+        """Desenha uma fatia do gráfico de pizza"""
+        import math
+        
+        # Converte ângulos para radianos
+        start_rad = math.radians(start_angle - 90)
+        end_rad = math.radians(end_angle - 90)
+        
+        # Cria lista de pontos para o polígono
+        points = [(center_x, center_y)]
+        
+        # Adiciona pontos ao longo do arco
+        num_points = max(3, int((end_angle - start_angle) / 2))
+        for i in range(num_points + 1):
+            angle = start_rad + (end_rad - start_rad) * i / num_points
+            x = center_x + radius * math.cos(angle)
+            y = center_y + radius * math.sin(angle)
+            points.append((x, y))
+        
+        # Desenha o polígono
+        if len(points) >= 3:
+            pygame.draw.polygon(self.screen, color, points)
+            pygame.draw.polygon(self.screen, WHITE, points, 2)
     
     def render_game_over(self, winner, total_control):
         """

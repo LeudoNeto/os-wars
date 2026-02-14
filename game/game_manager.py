@@ -92,6 +92,10 @@ class GameManager:
         self.current_attack_continent = None
         self.current_target_continent = None
         
+        # Animação do resultado
+        self.combat_result_animation_start = 0
+        self.combat_result_animation_duration = 3.0  # 2 segundos de animação
+        
         # Animação
         self.animation_offset = 0  # Offset para animar as setas
         
@@ -419,12 +423,19 @@ class GameManager:
                 self.current_defender.use_reroll()
         
         elif action == "continue":
-            # Finaliza o combate
+            # Finaliza o combate e começa animação do resultado
+            import time
+            self.showing_dice_results = False
             self._finish_combat()
+            self.combat_result_animation_start = time.time()
     
     def _finish_combat(self):
         """Finaliza o combate aplicando os resultados"""
         from game.utils.helpers import resolve_combat, apply_combat_result
+        
+        # Salva controle antes do combate
+        control_before = {player: self.current_target_continent.control[player] 
+                         for player in self.current_target_continent.control}
         
         # Resolve o combate
         attacker_wins = resolve_combat(self.attacker_dice_results, self.defender_dice_results)
@@ -441,12 +452,17 @@ class GameManager:
         self.combat_system.last_combat_result = {
             "attacker": self.current_attacker.name,
             "defender": self.current_defender.name,
+            "attacker_color": self.current_attacker.color,
+            "defender_color": self.current_defender.color,
             "attacking_continent": self.current_attack_continent.name,
             "defending_continent": self.current_target_continent.name,
-            "attacker_dice": self.attacker_dice_results,
-            "defender_dice": self.defender_dice_results,
+            "continent": self.current_target_continent,
+            "attacker_dice": sorted(self.attacker_dice_results, reverse=True),
+            "defender_dice": sorted(self.defender_dice_results, reverse=True),
             "attacker_wins": attacker_wins,
             "control_gained": attacker_wins * 5,
+            "control_before": control_before,
+            "control_after": dict(self.current_target_continent.control),
             "new_attacker_control": self.current_target_continent.get_control_percentage(self.current_attacker.name),
             "new_defender_control": self.current_target_continent.get_control_percentage(self.current_defender.name)
         }
@@ -454,8 +470,7 @@ class GameManager:
         # Usa um ataque
         self.turn_manager.use_attack()
         
-        # Limpa estados
-        self.showing_dice_results = False
+        # Limpa estados de seleção
         self.selected_attack_continent = None
         self.selected_target_continent = None
         self.selected_enemy = None
@@ -692,8 +707,12 @@ class GameManager:
         
         # Resultado de combate
         if self.showing_combat_result:
+            import time
+            animation_elapsed = time.time() - self.combat_result_animation_start
             self.ui_manager.render_combat_result(
-                self.combat_system.last_combat_result
+                self.combat_system.last_combat_result,
+                animation_elapsed,
+                self.combat_result_animation_duration
             )
         
         # Roleta
