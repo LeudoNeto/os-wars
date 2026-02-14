@@ -18,8 +18,8 @@ class Player:
         self.name = name
         self.color = PLAYER_COLORS[name]
         self.ability = SPECIAL_ABILITIES[name]
-        self.ability_used = False  # Para Linux que pode re-rolar 1x por turno
-        
+        self.ability_used = False  # Para Linux que pode re-rolar 1x por combate
+    
     def reset_turn_abilities(self):
         """Reseta habilidades que são por turno"""
         self.ability_used = False

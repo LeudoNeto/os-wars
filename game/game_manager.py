@@ -75,6 +75,21 @@ class GameManager:
         self.event_result = None  # Dados do resultado do evento
         self.event_finished = False  # Indica se o evento já terminou e aguarda "Passar Turno"
         
+        # Preparação de combate
+        self.preparing_combat = False
+        self.showing_dice_animation = False
+        self.showing_dice_results = False
+        self.selected_enemy = None
+        self.attacker_dice_count = 1
+        self.defender_dice_count = 1
+        self.max_attacker_dice = 1
+        self.max_defender_dice = 1
+        self.attacker_dice_results = []
+        self.defender_dice_results = []
+        self.dice_animation_start = 0
+        self.current_attacker = None
+        self.current_defender = None
+        
         # Animação
         self.animation_offset = 0  # Offset para animar as setas
         
@@ -112,9 +127,18 @@ class GameManager:
     
     def run(self):
         """Loop principal do jogo"""
+        import time
+        
         while self.running:
             # Atualiza animação
             self.animation_offset = (self.animation_offset + 2) % 60
+            
+            # Verifica animação de dados
+            if self.showing_dice_animation:
+                elapsed = time.time() - self.dice_animation_start
+                if elapsed > 1.5:  # 1.5 segundos de animação
+                    self.showing_dice_animation = False
+                    self.showing_dice_results = True
             
             self._handle_events()
             self._update()
@@ -144,6 +168,16 @@ class GameManager:
     
     def _handle_click(self, pos):
         """Trata cliques do mouse"""
+        # Se está mostrando resultados dos dados
+        if self.showing_dice_results:
+            self._handle_dice_results_click(pos)
+            return
+        
+        # Se está preparando combate
+        if self.preparing_combat:
+            self._handle_combat_preparation_click(pos)
+            return
+        
         # Se está mostrando seleção de inimigo
         if self.showing_enemy_selection:
             self._handle_enemy_selection_click(pos)
@@ -269,33 +303,158 @@ class GameManager:
         selected_enemy = self.ui_manager.get_clicked_enemy(pos, enemies)
         
         if selected_enemy:
-            # Executa ataque contra o inimigo selecionado
-            self._execute_attack(self.selected_target_continent, selected_enemy)
-            
-            # Fecha popup e limpa seleções
+            # Vai para preparação de combate
             self.showing_enemy_selection = False
-            self.selected_attack_continent = None
-            self.selected_target_continent = None
+            self._prepare_combat(selected_enemy)
         elif self.ui_manager.is_cancel_enemy_selection_clicked(pos):
             # Cancela seleção
             self.showing_enemy_selection = False
             self.selected_attack_continent = None
             self.selected_target_continent = None
     
-    def _execute_attack(self, target_continent, defender):
-        """Executa um ataque"""
+    def _prepare_combat(self, defender):
+        """Prepara o combate, calculando máximo de dados para cada lado"""
         current_player = self.turn_manager.get_current_player()
         
-        # Executa combate
-        result = self.combat_system.execute_attack(
-            current_player,
-            defender,
-            self.selected_attack_continent,
-            target_continent
+        # Reseta habilidade de re-roll para ambos os jogadores (1 vez por combate)
+        current_player.ability_used = False
+        defender.ability_used = False
+        
+        # Calcula quantidade de dados para cada lado
+        from game.utils.helpers import calculate_dice_count
+        from game.utils.constants import MIN_DICE
+        
+        attacker_control = self.selected_attack_continent.get_control_percentage(current_player.name)
+        defender_control = self.selected_target_continent.get_control_percentage(defender.name)
+        
+        # Calcula máximo de dados com bônus especiais
+        self.max_attacker_dice = calculate_dice_count(
+            attacker_control, 
+            bonus=current_player.get_attack_bonus()
         )
+        self.max_defender_dice = calculate_dice_count(defender_control)
+        
+        # Inicializa com os valores máximos
+        self.attacker_dice_count = self.max_attacker_dice
+        self.defender_dice_count = self.max_defender_dice
+        
+        self.selected_enemy = defender
+        self.preparing_combat = True
+    
+    def _handle_combat_preparation_click(self, pos):
+        """Trata cliques na tela de preparação de combate"""
+        action = self.ui_manager.handle_combat_preparation_click(
+            pos,
+            self.attacker_dice_count,
+            self.defender_dice_count,
+            self.max_attacker_dice,
+            self.max_defender_dice
+        )
+        
+        if action == "attacker_increase":
+            self.attacker_dice_count = min(self.attacker_dice_count + 1, self.max_attacker_dice)
+        elif action == "attacker_decrease":
+            from game.utils.constants import MIN_DICE
+            self.attacker_dice_count = max(self.attacker_dice_count - 1, MIN_DICE)
+        elif action == "defender_increase":
+            self.defender_dice_count = min(self.defender_dice_count + 1, self.max_defender_dice)
+        elif action == "defender_decrease":
+            from game.utils.constants import MIN_DICE
+            self.defender_dice_count = max(self.defender_dice_count - 1, MIN_DICE)
+        elif action == "roll":
+            # Inicia animação e rola os dados
+            self._roll_dice()
+    
+    def _roll_dice(self):
+        """Rola os dados e inicia animação"""
+        from game.utils.helpers import roll_dice
+        import time
+        
+        # Rola os dados
+        self.attacker_dice_results = roll_dice(self.attacker_dice_count)
+        self.defender_dice_results = roll_dice(self.defender_dice_count)
+        
+        # Aplica bônus de defesa do MacOS
+        if self.selected_enemy.name == "MacOS":
+            bonus = self.selected_enemy.get_defense_bonus()
+            self.defender_dice_results = [d + bonus for d in self.defender_dice_results]
+        
+        # Guarda referências dos jogadores
+        self.current_attacker = self.turn_manager.get_current_player()
+        self.current_defender = self.selected_enemy
+        
+        # Inicia animação
+        self.preparing_combat = False
+        self.showing_dice_animation = True
+        self.dice_animation_start = time.time()
+    
+    def _handle_dice_results_click(self, pos):
+        """Trata cliques quando os dados estão sendo exibidos"""
+        action = self.ui_manager.handle_dice_results_click(
+            pos,
+            self.current_attacker,
+            self.current_defender,
+            self.attacker_dice_results,
+            self.defender_dice_results
+        )
+        
+        if action and action.startswith("reroll_attacker_"):
+            # Re-rola dado do atacante
+            dice_index = int(action.split("_")[-1])
+            if self.current_attacker.can_reroll():
+                from game.utils.helpers import roll_dice
+                self.attacker_dice_results[dice_index] = roll_dice(1)[0]
+                self.current_attacker.use_reroll()
+        
+        elif action and action.startswith("reroll_defender_"):
+            # Re-rola dado do defensor
+            dice_index = int(action.split("_")[-1])
+            if self.current_defender.can_reroll():
+                from game.utils.helpers import roll_dice
+                self.defender_dice_results[dice_index] = roll_dice(1)[0]
+                self.current_defender.use_reroll()
+        
+        elif action == "continue":
+            # Finaliza o combate
+            self._finish_combat()
+    
+    def _finish_combat(self):
+        """Finaliza o combate aplicando os resultados"""
+        from game.utils.helpers import resolve_combat, apply_combat_result
+        
+        # Resolve o combate
+        attacker_wins = resolve_combat(self.attacker_dice_results, self.defender_dice_results)
+        
+        # Aplica o resultado ao continente defensor
+        apply_combat_result(
+            self.selected_target_continent.control,
+            self.current_attacker.name,
+            self.current_defender.name,
+            attacker_wins
+        )
+        
+        # Salva resultado para exibição
+        self.combat_system.last_combat_result = {
+            "attacker": self.current_attacker.name,
+            "defender": self.current_defender.name,
+            "attacking_continent": self.selected_attack_continent.name,
+            "defending_continent": self.selected_target_continent.name,
+            "attacker_dice": self.attacker_dice_results,
+            "defender_dice": self.defender_dice_results,
+            "attacker_wins": attacker_wins,
+            "control_gained": attacker_wins * 5,
+            "new_attacker_control": self.selected_target_continent.get_control_percentage(self.current_attacker.name),
+            "new_defender_control": self.selected_target_continent.get_control_percentage(self.current_defender.name)
+        }
         
         # Usa um ataque
         self.turn_manager.use_attack()
+        
+        # Limpa estados
+        self.showing_dice_results = False
+        self.selected_attack_continent = None
+        self.selected_target_continent = None
+        self.selected_enemy = None
         
         # Mostra resultado
         self.showing_combat_result = True
@@ -489,6 +648,42 @@ class GameManager:
             self.ui_manager.render_enemy_selection(
                 enemies,
                 self.selected_target_continent
+            )
+        
+        # Preparação de combate
+        if self.preparing_combat:
+            current_player = self.turn_manager.get_current_player()
+            self.ui_manager.render_combat_preparation(
+                current_player,
+                self.selected_enemy,
+                self.attacker_dice_count,
+                self.defender_dice_count,
+                self.max_attacker_dice,
+                self.max_defender_dice,
+                self.logos
+            )
+        
+        # Animação de dados
+        if self.showing_dice_animation:
+            import time
+            elapsed = time.time() - self.dice_animation_start
+            self.ui_manager.render_dice_animation(
+                self.current_attacker,
+                self.current_defender,
+                self.attacker_dice_count,
+                self.defender_dice_count,
+                elapsed,
+                self.logos
+            )
+        
+        # Resultados dos dados (com opção de re-roll)
+        if self.showing_dice_results:
+            self.ui_manager.render_dice_results(
+                self.current_attacker,
+                self.current_defender,
+                self.attacker_dice_results,
+                self.defender_dice_results,
+                self.logos
             )
         
         # Resultado de combate

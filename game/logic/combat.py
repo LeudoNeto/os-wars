@@ -13,7 +13,8 @@ class CombatSystem:
         self.last_combat_result = None
     
     def execute_attack(self, attacker_player, defender_player, 
-                       attacking_continent, defending_continent):
+                       attacking_continent, defending_continent,
+                       attacker_dice_count=None, defender_dice_count=None):
         """
         Executa um ataque de um continente para outro.
         
@@ -22,20 +23,24 @@ class CombatSystem:
             defender_player: Objeto Player do defensor
             attacking_continent: Objeto Continent atacante
             defending_continent: Objeto Continent defensor
+            attacker_dice_count: Quantidade de dados do atacante (opcional)
+            defender_dice_count: Quantidade de dados do defensor (opcional)
             
         Returns:
             Dicionário com resultado do combate
         """
-        # Calcula quantidade de dados para cada lado
-        attacker_control = attacking_continent.get_control_percentage(attacker_player.name)
-        defender_control = defending_continent.get_control_percentage(defender_player.name)
-        
-        # Calcula dados com bônus especiais
-        attacker_dice_count = calculate_dice_count(
-            attacker_control, 
-            bonus=attacker_player.get_attack_bonus()
-        )
-        defender_dice_count = calculate_dice_count(defender_control)
+        # Se não forneceu quantidades, calcula automaticamente
+        if attacker_dice_count is None or defender_dice_count is None:
+            # Calcula quantidade de dados para cada lado
+            attacker_control = attacking_continent.get_control_percentage(attacker_player.name)
+            defender_control = defending_continent.get_control_percentage(defender_player.name)
+            
+            # Calcula dados com bônus especiais
+            attacker_dice_count = calculate_dice_count(
+                attacker_control, 
+                bonus=attacker_player.get_attack_bonus()
+            )
+            defender_dice_count = calculate_dice_count(defender_control)
         
         # Rola os dados
         attacker_dice = roll_dice(attacker_dice_count)

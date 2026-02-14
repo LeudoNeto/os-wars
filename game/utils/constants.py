@@ -98,7 +98,7 @@ TURN_ORDER = ["Windows", "MacOS", "Linux"]
 SPECIAL_ABILITIES = {
     "Windows": "Ganha um dado extra para ataques",
     "MacOS": "Soma +1 em todos os dados de defesa",
-    "Linux": "Pode re-rolar um dado por turno"
+    "Linux": "Pode re-rolar um dado por combate"
 }
 
 # Logo dos SOs

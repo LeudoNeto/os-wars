@@ -400,3 +400,396 @@ class UIManager:
         if hasattr(self, 'cancel_button_rect'):
             return self.cancel_button_rect.collidepoint(pos)
         return False
+    
+    def render_combat_preparation(self, attacker, defender, attacker_dice, defender_dice,
+                                   max_attacker_dice, max_defender_dice, logos):
+        """
+        Renderiza a tela de preparação de combate.
+        
+        Args:
+            attacker: Jogador atacante
+            defender: Jogador defensor
+            attacker_dice: Quantidade de dados do atacante
+            defender_dice: Quantidade de dados do defensor
+            max_attacker_dice: Máximo de dados do atacante
+            max_defender_dice: Máximo de dados do defensor
+            logos: Dicionário com logos dos jogadores
+        """
+        # Overlay semi-transparente
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Painel central
+        panel_width = 800
+        panel_height = 500
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, BLACK, panel_rect)
+        pygame.draw.rect(self.screen, WHITE, panel_rect, 3)
+        
+        # Título
+        title = self.font_large.render("Preparação de Combate", True, WHITE)
+        title_rect = title.get_rect(center=(panel_x + panel_width//2, panel_y + 40))
+        self.screen.blit(title, title_rect)
+        
+        # Logo e info do atacante (esquerda)
+        attacker_x = panel_x + 150
+        attacker_y = panel_y + 150
+        
+        if attacker.name in logos:
+            logo = pygame.transform.scale(logos[attacker.name], (100, 100))
+            logo_rect = logo.get_rect(center=(attacker_x, attacker_y))
+            self.screen.blit(logo, logo_rect)
+        
+        attacker_label = self.font_medium.render("Atacante", True, WHITE)
+        attacker_label_rect = attacker_label.get_rect(center=(attacker_x, attacker_y - 90))
+        self.screen.blit(attacker_label, attacker_label_rect)
+        
+        attacker_name = self.font_small.render(attacker.name, True, attacker.color)
+        attacker_name_rect = attacker_name.get_rect(center=(attacker_x, attacker_y + 70))
+        self.screen.blit(attacker_name, attacker_name_rect)
+        
+        # Logo e info do defensor (direita)
+        defender_x = panel_x + panel_width - 150
+        defender_y = panel_y + 150
+        
+        if defender.name in logos:
+            logo = pygame.transform.scale(logos[defender.name], (100, 100))
+            logo_rect = logo.get_rect(center=(defender_x, defender_y))
+            self.screen.blit(logo, logo_rect)
+        
+        defender_label = self.font_medium.render("Defensor", True, WHITE)
+        defender_label_rect = defender_label.get_rect(center=(defender_x, defender_y - 90))
+        self.screen.blit(defender_label, defender_label_rect)
+        
+        defender_name = self.font_small.render(defender.name, True, defender.color)
+        defender_name_rect = defender_name.get_rect(center=(defender_x, defender_y + 70))
+        self.screen.blit(defender_name, defender_name_rect)
+        
+        # Seletores de dados
+        selector_y = panel_y + 320
+        
+        # Seletor do atacante
+        self._render_dice_selector(
+            attacker_x, selector_y, attacker_dice, max_attacker_dice,
+            attacker.color, "attacker"
+        )
+        
+        # Seletor do defensor
+        self._render_dice_selector(
+            defender_x, selector_y, defender_dice, max_defender_dice,
+            defender.color, "defender"
+        )
+        
+        # Botão Rolar (centro)
+        roll_button_width = 180
+        roll_button_height = 60
+        roll_button_x = panel_x + (panel_width - roll_button_width) // 2
+        roll_button_y = panel_y + panel_height - 100
+        
+        self.roll_button_rect = pygame.Rect(
+            roll_button_x, roll_button_y, roll_button_width, roll_button_height
+        )
+        
+        pygame.draw.rect(self.screen, (0, 150, 0), self.roll_button_rect)
+        pygame.draw.rect(self.screen, WHITE, self.roll_button_rect, 3)
+        
+        roll_text = self.font_large.render("ROLAR", True, WHITE)
+        roll_text_rect = roll_text.get_rect(center=self.roll_button_rect.center)
+        self.screen.blit(roll_text, roll_text_rect)
+    
+    def _render_dice_selector(self, center_x, center_y, dice_count, max_dice, color, side):
+        """Renderiza um seletor de dados com botões + e -"""
+        from game.utils.constants import MIN_DICE
+        
+        # Número de dados
+        dice_text = self.font_large.render(str(dice_count), True, WHITE)
+        dice_rect = dice_text.get_rect(center=(center_x, center_y))
+        self.screen.blit(dice_text, dice_rect)
+        
+        # Label "Dados"
+        label = self.font_small.render("Dados", True, GRAY)
+        label_rect = label.get_rect(center=(center_x, center_y - 40))
+        self.screen.blit(label, label_rect)
+        
+        # Botão + (acima)
+        button_size = 40
+        plus_button = pygame.Rect(
+            center_x - button_size//2,
+            center_y - 70,
+            button_size,
+            button_size
+        )
+        
+        # Desabilita se já está no máximo
+        plus_enabled = dice_count < max_dice
+        plus_color = color if plus_enabled else DARK_GRAY
+        
+        pygame.draw.rect(self.screen, plus_color, plus_button)
+        pygame.draw.rect(self.screen, WHITE, plus_button, 2)
+        
+        plus_text = self.font_medium.render("+", True, WHITE)
+        plus_text_rect = plus_text.get_rect(center=plus_button.center)
+        self.screen.blit(plus_text, plus_text_rect)
+        
+        # Botão - (abaixo)
+        minus_button = pygame.Rect(
+            center_x - button_size//2,
+            center_y + 40,
+            button_size,
+            button_size
+        )
+        
+        # Desabilita se já está no mínimo
+        minus_enabled = dice_count > MIN_DICE
+        minus_color = color if minus_enabled else DARK_GRAY
+        
+        pygame.draw.rect(self.screen, minus_color, minus_button)
+        pygame.draw.rect(self.screen, WHITE, minus_button, 2)
+        
+        minus_text = self.font_medium.render("-", True, WHITE)
+        minus_text_rect = minus_text.get_rect(center=minus_button.center)
+        self.screen.blit(minus_text, minus_text_rect)
+        
+        # Salva referências dos botões
+        if side == "attacker":
+            self.attacker_plus_button = plus_button if plus_enabled else None
+            self.attacker_minus_button = minus_button if minus_enabled else None
+        else:
+            self.defender_plus_button = plus_button if plus_enabled else None
+            self.defender_minus_button = minus_button if minus_enabled else None
+    
+    def handle_combat_preparation_click(self, pos, attacker_dice, defender_dice,
+                                        max_attacker_dice, max_defender_dice):
+        """
+        Trata cliques na tela de preparação de combate.
+        
+        Args:
+            pos: Posição do clique
+            attacker_dice: Quantidade atual de dados do atacante
+            defender_dice: Quantidade atual de dados do defensor
+            max_attacker_dice: Máximo de dados do atacante
+            max_defender_dice: Máximo de dados do defensor
+            
+        Returns:
+            String indicando a ação: "attacker_increase", "attacker_decrease",
+            "defender_increase", "defender_decrease", "roll", ou None
+        """
+        from game.utils.constants import MIN_DICE
+        
+        # Verifica botão de rolar
+        if hasattr(self, 'roll_button_rect') and self.roll_button_rect.collidepoint(pos):
+            return "roll"
+        
+        # Verifica botões do atacante
+        if hasattr(self, 'attacker_plus_button') and self.attacker_plus_button:
+            if self.attacker_plus_button.collidepoint(pos) and attacker_dice < max_attacker_dice:
+                return "attacker_increase"
+        
+        if hasattr(self, 'attacker_minus_button') and self.attacker_minus_button:
+            if self.attacker_minus_button.collidepoint(pos) and attacker_dice > MIN_DICE:
+                return "attacker_decrease"
+        
+        # Verifica botões do defensor
+        if hasattr(self, 'defender_plus_button') and self.defender_plus_button:
+            if self.defender_plus_button.collidepoint(pos) and defender_dice < max_defender_dice:
+                return "defender_increase"
+        
+        if hasattr(self, 'defender_minus_button') and self.defender_minus_button:
+            if self.defender_minus_button.collidepoint(pos) and defender_dice > MIN_DICE:
+                return "defender_decrease"
+        
+        return None
+    
+    def render_dice_animation(self, attacker, defender, attacker_dice_count, 
+                              defender_dice_count, elapsed_time, logos):
+        """Renderiza animação dos dados girando"""
+        import random
+        
+        # Overlay semi-transparente
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Painel central
+        panel_width = 800
+        panel_height = 500
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, BLACK, panel_rect)
+        pygame.draw.rect(self.screen, WHITE, panel_rect, 3)
+        
+        # Título
+        title = self.font_large.render("Rolando Dados...", True, WHITE)
+        title_rect = title.get_rect(center=(panel_x + panel_width//2, panel_y + 50))
+        self.screen.blit(title, title_rect)
+        
+        # Dados do atacante (esquerda)
+        self._render_animated_dice(
+            panel_x + 150, panel_y + 250,
+            attacker_dice_count, attacker.color, "Atacante"
+        )
+        
+        # Dados do defensor (direita)
+        self._render_animated_dice(
+            panel_x + panel_width - 150, panel_y + 250,
+            defender_dice_count, defender.color, "Defensor"
+        )
+    
+    def _render_animated_dice(self, center_x, center_y, dice_count, color, label):
+        """Renderiza dados animados (valores aleatórios)"""
+        import random
+        
+        # Label
+        label_text = self.font_medium.render(label, True, WHITE)
+        label_rect = label_text.get_rect(center=(center_x, center_y - 100))
+        self.screen.blit(label_text, label_rect)
+        
+        # Renderiza cada dado
+        dice_size = 50
+        spacing = 10
+        start_y = center_y - ((dice_count * (dice_size + spacing)) // 2)
+        
+        for i in range(dice_count):
+            y = start_y + i * (dice_size + spacing)
+            
+            # Valor aleatório para animação
+            value = random.randint(1, 6)
+            
+            # Desenha dado
+            dice_rect = pygame.Rect(center_x - dice_size//2, y, dice_size, dice_size)
+            pygame.draw.rect(self.screen, color, dice_rect)
+            pygame.draw.rect(self.screen, WHITE, dice_rect, 2)
+            
+            # Valor
+            value_text = self.font_medium.render(str(value), True, WHITE)
+            value_rect = value_text.get_rect(center=dice_rect.center)
+            self.screen.blit(value_text, value_rect)
+    
+    def render_dice_results(self, attacker, defender, attacker_dice, defender_dice, logos):
+        """Renderiza resultados dos dados com opção de re-roll para Linux"""
+        # Overlay semi-transparente
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Painel central
+        panel_width = 800
+        panel_height = 600
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, BLACK, panel_rect)
+        pygame.draw.rect(self.screen, WHITE, panel_rect, 3)
+        
+        # Título
+        title = self.font_large.render("Resultados dos Dados", True, WHITE)
+        title_rect = title.get_rect(center=(panel_x + panel_width//2, panel_y + 40))
+        self.screen.blit(title, title_rect)
+        
+        # Dados do atacante (esquerda)
+        attacker_can_reroll = attacker.can_reroll()
+        self.attacker_dice_rects = self._render_result_dice(
+            panel_x + 150, panel_y + 250,
+            attacker_dice, attacker.color, attacker.name,
+            attacker_can_reroll, "attacker"
+        )
+        
+        # Dados do defensor (direita)
+        defender_can_reroll = defender.can_reroll()
+        self.defender_dice_rects = self._render_result_dice(
+            panel_x + panel_width - 150, panel_y + 250,
+            defender_dice, defender.color, defender.name,
+            defender_can_reroll, "defender"
+        )
+        
+        # Instruções de re-roll se aplicável
+        if attacker_can_reroll or defender_can_reroll:
+            instruction = self.font_small.render(
+                "Linux: Clique em um dado para re-rolar (1x por combate)",
+                True, (46, 204, 113)
+            )
+            instruction_rect = instruction.get_rect(
+                center=(panel_x + panel_width//2, panel_y + panel_height - 100)
+            )
+            self.screen.blit(instruction, instruction_rect)
+        
+        # Botão Continuar
+        button_width = 200
+        button_height = 60
+        button_x = panel_x + (panel_width - button_width) // 2
+        button_y = panel_y + panel_height - 70
+        
+        self.continue_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (0, 100, 200), self.continue_button_rect)
+        pygame.draw.rect(self.screen, WHITE, self.continue_button_rect, 3)
+        
+        continue_text = self.font_medium.render("Continuar", True, WHITE)
+        continue_text_rect = continue_text.get_rect(center=self.continue_button_rect.center)
+        self.screen.blit(continue_text, continue_text_rect)
+    
+    def _render_result_dice(self, center_x, center_y, dice_values, color, player_name,
+                            can_reroll, side):
+        """Renderiza dados com valores finais (clicáveis se Linux)"""
+        # Nome do jogador
+        name_text = self.font_medium.render(player_name, True, color)
+        name_rect = name_text.get_rect(center=(center_x, center_y - 120))
+        self.screen.blit(name_text, name_rect)
+        
+        # Renderiza cada dado
+        dice_size = 50
+        spacing = 10
+        dice_count = len(dice_values)
+        start_y = center_y - ((dice_count * (dice_size + spacing)) // 2)
+        
+        dice_rects = []
+        
+        for i, value in enumerate(dice_values):
+            y = start_y + i * (dice_size + spacing)
+            
+            # Desenha dado
+            dice_rect = pygame.Rect(center_x - dice_size//2, y, dice_size, dice_size)
+            pygame.draw.rect(self.screen, color, dice_rect)
+            
+            # Borda mais grossa se clicável
+            border_width = 3 if can_reroll else 2
+            pygame.draw.rect(self.screen, WHITE, dice_rect, border_width)
+            
+            # Valor
+            value_text = self.font_medium.render(str(value), True, WHITE)
+            value_rect = value_text.get_rect(center=dice_rect.center)
+            self.screen.blit(value_text, value_rect)
+            
+            dice_rects.append((dice_rect, i))
+        
+        return dice_rects
+    
+    def handle_dice_results_click(self, pos, attacker, defender, attacker_dice, defender_dice):
+        """Trata cliques na tela de resultados dos dados
+        
+        Returns:
+            String indicando ação: "reroll_attacker_X", "reroll_defender_X", "continue", ou None
+        """
+        # Verifica botão continuar
+        if hasattr(self, 'continue_button_rect') and self.continue_button_rect.collidepoint(pos):
+            return "continue"
+        
+        # Verifica clique em dados do atacante (se pode re-rolar)
+        if attacker.can_reroll() and hasattr(self, 'attacker_dice_rects'):
+            for dice_rect, dice_index in self.attacker_dice_rects:
+                if dice_rect.collidepoint(pos):
+                    return f"reroll_attacker_{dice_index}"
+        
+        # Verifica clique em dados do defensor (se pode re-rolar)
+        if defender.can_reroll() and hasattr(self, 'defender_dice_rects'):
+            for dice_rect, dice_index in self.defender_dice_rects:
+                if dice_rect.collidepoint(pos):
+                    return f"reroll_defender_{dice_index}"
+        
+        return None

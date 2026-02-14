@@ -24,7 +24,7 @@ Ao invés de dominar totalmente cada país, a divisão será entre continentes:
 Habilidade Especial de cada SO:
 - Windows: Ganha um dado extra para ataques independente da porcentagem de controle.
 - MacOS: Soma mais 1 em todos os dados de defesa.
-- Linux: Pode re-rolar um dado de ataque ou defesa uma vez por turno.
+- Linux: Pode re-rolar um dado de ataque ou defesa uma vez por combate (ataque ou defesa).
 
 ## Pasta assets
 - `assets/continentes`: Imagens png dos continentes, recortados de um mapa mundi real.
