@@ -136,6 +136,8 @@ class GameManager:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Botão esquerdo
                     self._handle_click(event.pos)
+                elif event.button == 3:  # Botão direito
+                    self._handle_right_click()
             
             elif event.type == pygame.MOUSEMOTION:
                 self._handle_mouse_motion(event.pos)
@@ -190,9 +192,13 @@ class GameManager:
     def _handle_button_click(self):
         """Trata clique no botão"""
         if self.turn_manager.is_attack_phase():
-            # Passa para fase de evento
-            self.turn_manager.skip_attack_phase()
-            self.selected_attack_continent = None
+            # Se há continente selecionado, cancela o ataque
+            if self.selected_attack_continent:
+                self.selected_attack_continent = None
+            else:
+                # Passa para fase de evento
+                self.turn_manager.skip_attack_phase()
+                self.selected_attack_continent = None
         
         elif self.turn_manager.is_event_phase():
             # Se o evento já terminou, passa o turno
@@ -207,6 +213,12 @@ class GameManager:
                 # Inicia roleta
                 self.showing_roulette = True
                 self.roulette.start_spin()
+    
+    def _handle_right_click(self):
+        """Trata clique com botão direito"""
+        # Se está na fase de ataque e há continente selecionado, cancela
+        if self.turn_manager.is_attack_phase() and self.selected_attack_continent:
+            self.selected_attack_continent = None
     
     def _handle_continent_click(self, continent):
         """Trata clique em um continente"""
@@ -459,7 +471,8 @@ class GameManager:
             self.turn_manager.get_attacks_info(),
             total_control,
             show_button=show_button,
-            event_finished=self.event_finished
+            event_finished=self.event_finished,
+            selected_attack_continent=self.selected_attack_continent
         )
         
         # Gráfico de pizza se hover sobre continente

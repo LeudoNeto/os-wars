@@ -35,7 +35,8 @@ class UIManager:
         self.button_hovered = False
     
     def render_bottom_panel(self, current_player, current_phase, attacks_info, 
-                           total_control, show_button=True, event_finished=False):
+                           total_control, show_button=True, event_finished=False,
+                           selected_attack_continent=None):
         """
         Renderiza o painel inferior com informações do jogo.
         
@@ -46,6 +47,7 @@ class UIManager:
             total_control: Porcentagem total de controle do jogador
             show_button: Se deve mostrar o botão
             event_finished: Se o evento já terminou (para mudar botão para "Passar Turno")
+            selected_attack_continent: Continente selecionado para ataque (ou None)
         """
         # Não desenha mais o fundo preto/cinza
         
@@ -57,7 +59,7 @@ class UIManager:
         
         # Botão (direita)
         if show_button:
-            self._render_button(current_phase, event_finished)
+            self._render_button(current_phase, event_finished, selected_attack_continent)
     
     def _render_player_info(self, player, total_control, attacks_info, current_phase):
         """Renderiza informações do jogador atual"""
@@ -126,11 +128,14 @@ class UIManager:
             phase_text_rect = phase_text.get_rect(center=(x_pos, y_pos + 15))
             self.screen.blit(phase_text, phase_text_rect)
     
-    def _render_button(self, current_phase, event_finished=False):
-        """Renderiza o botão de passar fase/turno"""
-        # Texto do botão baseado na fase
+    def _render_button(self, current_phase, event_finished=False, selected_attack_continent=None):
+        """Renderiza o botão de passar fase/turno ou cancelar ataque"""
+        # Texto do botão baseado na fase e estado
         if current_phase == PHASE_ATTACK:
-            button_text = "Passar Etapa"
+            if selected_attack_continent:
+                button_text = "Cancelar Ataque"
+            else:
+                button_text = "Passar Etapa"
         elif event_finished:
             button_text = "Passar Turno"
         else:
