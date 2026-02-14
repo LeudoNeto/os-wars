@@ -735,6 +735,23 @@ class UIManager:
         cy = dice_rect.centery
         offset = dice_rect.width // 4
         
+        # Para valores acima de 6 (bônus do MacOS), desenha o número
+        if value > 6:
+            # Desenha o número no centro do dado
+            font_size = dice_rect.width // 2
+            font = pygame.font.Font(None, font_size)
+            number_text = font.render(str(value), True, WHITE)
+            number_rect = number_text.get_rect(center=(cx, cy))
+            
+            # Sombra do número
+            shadow_text = font.render(str(value), True, (0, 0, 0, 100))
+            shadow_rect = shadow_text.get_rect(center=(cx + 2, cy + 2))
+            self.screen.blit(shadow_text, shadow_rect)
+            
+            # Número principal
+            self.screen.blit(number_text, number_rect)
+            return
+        
         # Posições dos pontinhos
         positions = {
             'center': (cx, cy),
