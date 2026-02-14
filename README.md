@@ -26,6 +26,9 @@ Habilidade Especial de cada SO:
 - MacOS: Soma mais 1 em todos os dados de defesa.
 - Linux: Pode re-rolar um dado de ataque ou defesa uma vez por combate (ataque ou defesa).
 
+## Condição de Vitória
+O jogo termina quando um jogador conseguir ter a maioria do controle (50% ou mais) em todos os 6 continentes simultaneamente. O jogador que alcançar primeiro essa condição é declarado o vencedor.
+
 ## Pasta assets
 - `assets/continentes`: Imagens png dos continentes, recortados de um mapa mundi real.
 - `assets/logos`: Imagens png das logos dos sistemas operacionais
@@ -54,4 +57,3 @@ A interface do jogo é composta por:
 - O jogador ativo pode escolher passar a etapa de Ataque a qualquer momento, mesmo que ainda tenha ataques disponíveis. Após passar a etapa de Ataque, o jogador ativa a etapa de Evento Aleatório.
 - Na etapa de Evento Aleatório, é girada uma roleta com 6 eventos diferentes, na roleta conterá as label "-30%", "-20%", "-10%", "+10%", "+20%" e "+30%". Quando a roleta parar, vai aparecer o nome e a descrição do evento sorteado, e ele será aplicado em um continente aleatório independente da porcentagem do jogador. O evento sorteado pode ser positivo ou negativo, e irá aumentar ou diminuir a porcentagem de controle do jogador ativo naquele continente em 10%, 20% ou 30%. O valor é referente a porcentagem que ele tem naquele continente, ou seja, se ele tem 50% de controle em um continente e o evento sorteado é "+20%", ele irá ganhar 20% de 50%, ou seja, 10%, aumentando seu controle para 60%. Se o evento sorteado fosse "-20%", ele perderia 20% de 50%, ou seja, 10%, diminuindo seu controle para 40%. O evento é aplicado apenas no jogador ativo, e não afeta os outros jogadores, estes terão suas porcentagens recalculadas normalmente para manter a soma em 100%.
 - Após o evento ser aplicado, o jogador ativo passa o turno para o próximo jogador, seguindo a ordem Windows -> MacOS -> Linux -> Windows, e assim por diante.
-- O jogo termina quando um jogador atingir 90% ou mais de controle total sobre os continentes. O jogador com a maior porcentagem de controle é declarado o vencedor.

@@ -581,12 +581,15 @@ class GameManager:
     def _check_win_condition(self):
         """Verifica se algum jogador venceu"""
         for player in self.players:
-            total_control = calculate_total_control(
-                {c.name: c.control for c in self.continents},
-                player.name
-            )
+            # Verifica se o jogador tem maioria (>= WIN_PERCENTAGE) em todos os continentes
+            has_all_continents = True
+            for continent in self.continents:
+                control_percentage = continent.get_control_percentage(player.name)
+                if control_percentage < WIN_PERCENTAGE:
+                    has_all_continents = False
+                    break
             
-            if total_control >= WIN_PERCENTAGE:
+            if has_all_continents:
                 self.game_over = True
                 self.winner = player
                 return

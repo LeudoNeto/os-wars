@@ -112,7 +112,7 @@ LOGO_FILES = {
 CONTROL_PERCENTAGE_PER_WIN = 5  # Porcentagem ganha/perdida por vitória no combate
 DICE_CONTROL_DIVISOR = 20  # Divisor para calcular quantidade de dados
 MIN_DICE = 1  # Mínimo de dados
-WIN_PERCENTAGE = 90  # Porcentagem necessária para vencer
+WIN_PERCENTAGE = 50  # Porcentagem necessária em cada continente para vencer
 
 # Eventos aleatórios por SO
 RANDOM_EVENTS = {
