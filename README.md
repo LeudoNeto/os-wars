@@ -1,19 +1,17 @@
-# Jogo sobre o tema "Guerra de Sistemas Operacionais"
+# OS Wars - Guerra de Sistemas Operacionais
 
-Descrição: Jogo baseado em War, com a guerra acontecendo entre os 3 sistemas operacionais: Windows, MacOS e Linux. Cada um controlado por um jogador.
+Um jogo de estratégia baseado em War onde Windows, MacOS e Linux batalham pelo controle dos continentes do mundo.
 
-## Como Executar
+## 📋 Sobre o Jogo
 
-```bash
-# Instalar dependências
-pip install -r requirements.txt
+OS Wars é um jogo de estratégia por turnos onde três jogadores (representando Windows, MacOS e Linux) competem pelo domínio global. Cada sistema operacional começa com controle parcial sobre os 6 continentes do mundo e deve usar ataques estratégicos e eventos aleatórios para conquistar território inimigo.
 
-# Executar o jogo
-python main.py
-```
+## 🎮 Como Jogar
 
-Para mais detalhes, consulte [INSTRUCOES.md](INSTRUCOES.md).
-Ao invés de dominar totalmente cada país, a divisão será entre continentes:
+### Objetivo
+Seja o primeiro a conquistar a maioria (50% ou mais) de controle em **todos os 6 continentes** simultaneamente.
+
+### Continentes
 - América do Norte
 - América do Sul/Central
 - Europa
@@ -21,39 +19,148 @@ Ao invés de dominar totalmente cada país, a divisão será entre continentes:
 - África
 - Oceania
 
-Habilidade Especial de cada SO:
-- Windows: Ganha um dado extra para ataques independente da porcentagem de controle.
-- MacOS: Soma mais 1 em todos os dados de defesa.
-- Linux: Pode re-rolar um dado de ataque ou defesa uma vez por combate (ataque ou defesa).
+### Turnos e Fases
 
-## Condição de Vitória
-O jogo termina quando um jogador conseguir ter a maioria do controle (50% ou mais) em todos os 6 continentes simultaneamente. O jogador que alcançar primeiro essa condição é declarado o vencedor.
+Cada turno é dividido em duas fases:
 
-## Pasta assets
-- `assets/continentes`: Imagens png dos continentes, recortados de um mapa mundi real.
-- `assets/logos`: Imagens png das logos dos sistemas operacionais
+#### 1️⃣ Fase de Ataque
+- Você pode realizar de 1 a X ataques (onde X = número de continentes que você controla)
+- **Como atacar:**
+  1. Clique em um continente que você controla (atacante)
+  2. Clique em um continente adjacente ou no mesmo continente (alvo)
+  3. Escolha quantos dados deseja rolar (de 1 até o máximo permitido)
+  4. Após a animação dos dados, clique em "Continuar"
+  5. Veja o resultado com o gráfico de pizza animado
+- Você pode passar a fase a qualquer momento clicando em "Passar Etapa"
 
-## Mapa
-O fundo será azul, representando o oceano, e em cima dele as imagens png dos continentes. Eles estão dispostos a representar o mapa mundi, tendo sido recortados de uma mesma imagem de um mapa mundi real. Assim não se preocupe com a posição, apenas coloque todos os continentes na "mesma posição", que é o centro da tela, e o mapa sairá formado.
+#### 2️⃣ Fase de Evento Aleatório
+- Clique em "Girar Roleta" para sortear um evento
+- Eventos possíveis: -30%, -20%, -10%, +10%, +20%, +30%
+- O evento será aplicado em um continente aleatório
+- A porcentagem é calculada sobre seu controle atual naquele continente
+  - Exemplo: se você tem 50% e tira +20%, ganha 10% (20% de 50)
+- Após ver o resultado, clique em "Passar Turno"
 
-Preencha cada continente com a cor do jogador que o controla (Windows: Vermelho, MacOS: Cinza, Linux: Verde), e a porcentagem de cada SO da seguinte forma: Destacado em cima a logo e a porcentagem do SO que controla o continente, e embaixo as porcentagens dos outros dois SOs. Exemplo: Se o continente é controlado pelo Windows, a logo do Windows e a porcentagem de controle do Windows ficam em destaque, e abaixo ficam as porcentagens de controle do MacOS e do Linux.
+### Sistema de Combate
 
-Cada SO terá uma porcentagem em um continente, que será inicialmente distribuída de forma aleatória, mas com uma média de 33% para cada um. O objetivo do jogo é conquistar 90% do total dos continentes. O jogo termina quando um dos jogadores atingir essa porcentagem.
+**Quantidade de Dados:**
+- Baseada no controle do continente: `(porcentagem ÷ 20) + 1`
+- Exemplo: 45% de controle = 3 dados (45÷20 = 2, +1 = 3)
+- Você pode escolher rolar menos dados que o máximo permitido
 
-## Interface
-A interface do jogo é composta por:
-- Um mapa centralizado na parte superior, com os continentes dispostos de forma a representar o mapa mundi.
-- Na parte esquerda inferior, a logo do jogador ativo, junto com a porcentagem total de controle que ele tem sobre os continentes.
-- Na parte central inferior, os 2 turnos "Ataque" e "Evento Aleatório", que ficam destacados quando é a vez do jogador realizar aquela etapa.
-- Na parte direita inferior, quando o mouse não estiver sobre um continente, fica o botão de "Passar Etapa" (muda para "Passar Turno" quando está na etapa de Evento Aleatório). Quando o mouse estiver sobre um continente, aparecerá um gráfico de Pizza mostrando a porcentagem de controle de cada SO naquele continente. O botão de "Passar Etapa" fica escondido quando o mouse está sobre um continente, e só aparece quando o mouse não está sobre nenhum continente.
+**Resolução:**
+- Os dados de atacante e defensor são ordenados do maior para o menor
+- Cada par é comparado: se o atacante vencer, ganha 5% de controle
+- O defensor perde 5% quando o atacante ganha
+- Número de comparações = mínimo entre dados do atacante e do defensor
 
-## Regras do Jogo
-- O jogo é jogado em turnos, e cada turno em 2 etapas: Ataque e Evento Aleatório.
-- Na etapa de Ataque, a quantidade da ataques permitidos no turno para o jogador é o mínimo entre 1 e a quantidade de continentes que ele controla. Ou seja, se um jogador controla 3 continentes, ele pode realizar até 3 ataques em seu turno, mas se ele controla apenas 1 continente, ele só pode realizar 1 ataque.
-- Para atacar, o jogador ativo pode escolher um continente "atacante", e um a ser "atacado", que pode ser um continente adjacente ao seu continente atacante, ou o próprio continente atacante, para tentar aumentar sua porcentagem de controle. O ataque é resolvido por meio de um sistema de rolagem de dados.
-- A quantidade de dados rolados depende da porcentagem de controle do jogador no continente atacante. O jogador pode escolher rolar um número de dados menor ou igual a divisão inteira de sua (porcentagem de controle / 20) + 1. Exemplo: Se um jogador tem 45% de controle em um continente, ele pode escolher rolar até 3 dados (45/20 = 2.25, arredondado para baixo é 2, mais 1 é 3).
-- Assim como no War, o jogador defensor rola um número de dados baseado em sua porcentagem de controle no continente atacado, seguindo a mesma regra de divisão inteira de (porcentagem de controle / 20) + 1.
-- Para resolver o ataque, os dados do atacante e do defensor são comparados em ordem decrescente. Para cada par de dados comparados, se o dado do atacante for maior que o do defensor, o atacante ganha 5% de controle no continente atacado, e o defensor perde 5%. Caso contrário, a porcentagem de ambos permanece a mesma. O número de pares de dados comparados é igual ao número mínimo de dados rolados entre o atacante e o defensor.
-- O jogador ativo pode escolher passar a etapa de Ataque a qualquer momento, mesmo que ainda tenha ataques disponíveis. Após passar a etapa de Ataque, o jogador ativa a etapa de Evento Aleatório.
-- Na etapa de Evento Aleatório, é girada uma roleta com 6 eventos diferentes, na roleta conterá as label "-30%", "-20%", "-10%", "+10%", "+20%" e "+30%". Quando a roleta parar, vai aparecer o nome e a descrição do evento sorteado, e ele será aplicado em um continente aleatório independente da porcentagem do jogador. O evento sorteado pode ser positivo ou negativo, e irá aumentar ou diminuir a porcentagem de controle do jogador ativo naquele continente em 10%, 20% ou 30%. O valor é referente a porcentagem que ele tem naquele continente, ou seja, se ele tem 50% de controle em um continente e o evento sorteado é "+20%", ele irá ganhar 20% de 50%, ou seja, 10%, aumentando seu controle para 60%. Se o evento sorteado fosse "-20%", ele perderia 20% de 50%, ou seja, 10%, diminuindo seu controle para 40%. O evento é aplicado apenas no jogador ativo, e não afeta os outros jogadores, estes terão suas porcentagens recalculadas normalmente para manter a soma em 100%.
-- Após o evento ser aplicado, o jogador ativo passa o turno para o próximo jogador, seguindo a ordem Windows -> MacOS -> Linux -> Windows, e assim por diante.
+### 🎯 Habilidades Especiais
+
+Cada sistema operacional possui uma habilidade única:
+
+| SO | Habilidade | Descrição |
+|---|---|---|
+| **Windows** | Dado Bônus de Ataque | Sempre rola +1 dado em ataques |
+| **MacOS** | Defesa Fortificada | Soma +1 em todos os dados de defesa |
+| **Linux** | Re-rolagem | Pode re-rolar 1 dado (ataque ou defesa) por combate |
+
+### 🖱️ Controles
+
+- **Mouse**: Navegar, selecionar continentes e clicar em botões
+- **Botão Direito**: Cancelar seleção de ataque
+- **ESC**: Sair do jogo
+
+### 📊 Interface
+
+A tela é dividida em:
+
+**Mapa (Superior):**
+- Continentes coloridos pela cor do jogador dominante
+  - 🔴 Windows: Vermelho
+  - ⚪ MacOS: Cinza
+  - 🟢 Linux: Verde
+- Cada continente mostra a logo e porcentagem do controlador em destaque
+- Porcentagens dos outros jogadores aparecem abaixo
+
+**Painel Inferior:**
+- **Esquerda**: Logo e porcentagem total de controle do jogador ativo
+- **Centro**: Indicadores das fases (Ataque / Evento Aleatório)
+- **Direita**: 
+  - Botão "Passar Etapa" / "Passar Turno"
+  - Gráfico de pizza ao passar o mouse sobre um continente
+
+## 🚀 Como Executar
+
+### Pré-requisitos
+
+- Python 3.8 ou superior
+- pip (gerenciador de pacotes do Python)
+
+### Instalação
+
+1. Clone o repositório:
+```bash
+git clone https://github.com/LeudoNeto/os-wars.git
+cd os-wars
+```
+
+2. Instale as dependências:
+```bash
+pip install -r requirements.txt
+```
+
+### Executar o Jogo
+
+```bash
+python main.py
+```
+
+## 📁 Estrutura do Projeto
+
+```
+os-wars/
+├── assets/
+│   ├── continentes/     # Imagens PNG dos continentes
+│   └── logos/           # Logos dos sistemas operacionais
+├── game/
+│   ├── logic/           # Sistema de combate e turnos
+│   ├── models/          # Classes de Jogador, Continente e Evento
+│   ├── ui/              # Interface gráfica e renderização
+│   ├── utils/           # Constantes e funções auxiliares
+│   └── game_manager.py  # Gerenciador principal do jogo
+├── main.py              # Ponto de entrada
+├── requirements.txt     # Dependências (pygame)
+└── README.md            # Este arquivo
+```
+
+## 🎲 Regras Detalhadas
+
+### Controle de Continentes
+- Cada continente tem 100% de controle dividido entre os 3 jogadores
+- Um jogador "controla" um continente quando tem a maior porcentagem
+- A distribuição inicial é aleatória, com média de ~33% para cada jogador
+
+### Ataques
+- Só pode atacar de continentes adjacentes ou atacar o próprio continente
+- O máximo de ataques por turno = continentes controlados (mínimo de 1)
+- Cada ataque pode transferir até 5% × número de vitórias nos dados
+
+### Eventos Aleatórios
+- São aplicados apenas ao jogador ativo
+- Afetam um continente aleatório, independente de quem o controla
+- Após o evento, as porcentagens dos outros jogadores são rebalanceadas proporcionalmente
+
+### Condição de Vitória
+O jogo termina quando um jogador consegue:
+- Ter **50% ou mais** de controle em **TODOS os 6 continentes** ao mesmo tempo
+
+## 🛠️ Tecnologias
+
+- **Python 3.8+**
+- **Pygame 2.5.0+** - Engine de jogos e renderização
+
+## 📝 Licença
+
+Este projeto é de código aberto para fins educacionais.
+
+**Divirta-se jogando OS Wars! 🎮🌍**
