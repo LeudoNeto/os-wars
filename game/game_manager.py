@@ -89,6 +89,8 @@ class GameManager:
         self.dice_animation_start = 0
         self.current_attacker = None
         self.current_defender = None
+        self.current_attack_continent = None
+        self.current_target_continent = None
         
         # Animação
         self.animation_offset = 0  # Offset para animar as setas
@@ -379,9 +381,11 @@ class GameManager:
             bonus = self.selected_enemy.get_defense_bonus()
             self.defender_dice_results = [d + bonus for d in self.defender_dice_results]
         
-        # Guarda referências dos jogadores
+        # Guarda referências dos jogadores e continentes para o combate
         self.current_attacker = self.turn_manager.get_current_player()
         self.current_defender = self.selected_enemy
+        self.current_attack_continent = self.selected_attack_continent
+        self.current_target_continent = self.selected_target_continent
         
         # Inicia animação
         self.preparing_combat = False
@@ -427,7 +431,7 @@ class GameManager:
         
         # Aplica o resultado ao continente defensor
         apply_combat_result(
-            self.selected_target_continent.control,
+            self.current_target_continent.control,
             self.current_attacker.name,
             self.current_defender.name,
             attacker_wins
@@ -437,14 +441,14 @@ class GameManager:
         self.combat_system.last_combat_result = {
             "attacker": self.current_attacker.name,
             "defender": self.current_defender.name,
-            "attacking_continent": self.selected_attack_continent.name,
-            "defending_continent": self.selected_target_continent.name,
+            "attacking_continent": self.current_attack_continent.name,
+            "defending_continent": self.current_target_continent.name,
             "attacker_dice": self.attacker_dice_results,
             "defender_dice": self.defender_dice_results,
             "attacker_wins": attacker_wins,
             "control_gained": attacker_wins * 5,
-            "new_attacker_control": self.selected_target_continent.get_control_percentage(self.current_attacker.name),
-            "new_defender_control": self.selected_target_continent.get_control_percentage(self.current_defender.name)
+            "new_attacker_control": self.current_target_continent.get_control_percentage(self.current_attacker.name),
+            "new_defender_control": self.current_target_continent.get_control_percentage(self.current_defender.name)
         }
         
         # Usa um ataque

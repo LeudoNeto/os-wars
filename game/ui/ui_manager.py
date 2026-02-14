@@ -614,9 +614,9 @@ class UIManager:
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
         
-        # Painel central
+        # Painel central (mais alto para acomodar grid de dados)
         panel_width = 800
-        panel_height = 500
+        panel_height = 550
         panel_x = (WINDOW_WIDTH - panel_width) // 2
         panel_y = (WINDOW_HEIGHT - panel_height) // 2
         
@@ -631,45 +631,143 @@ class UIManager:
         
         # Dados do atacante (esquerda)
         self._render_animated_dice(
-            panel_x + 150, panel_y + 250,
+            panel_x + 150, panel_y + 280,
             attacker_dice_count, attacker.color, "Atacante"
         )
         
         # Dados do defensor (direita)
         self._render_animated_dice(
-            panel_x + panel_width - 150, panel_y + 250,
+            panel_x + panel_width - 150, panel_y + 280,
             defender_dice_count, defender.color, "Defensor"
         )
     
     def _render_animated_dice(self, center_x, center_y, dice_count, color, label):
-        """Renderiza dados animados (valores aleatórios)"""
+        """Renderiza dados animados (valores aleatórios) com aparência 3D em grid 2 colunas"""
         import random
+        import math
         
         # Label
         label_text = self.font_medium.render(label, True, WHITE)
-        label_rect = label_text.get_rect(center=(center_x, center_y - 100))
+        label_rect = label_text.get_rect(center=(center_x, center_y - 140))
         self.screen.blit(label_text, label_rect)
         
-        # Renderiza cada dado
-        dice_size = 50
-        spacing = 10
-        start_y = center_y - ((dice_count * (dice_size + spacing)) // 2)
+        # Configuração do grid de dados
+        dice_size = 60
+        spacing_x = 20  # Espaçamento horizontal entre colunas
+        spacing_y = 15  # Espaçamento vertical entre linhas
+        cols = 2  # 2 colunas
+        
+        # Calcula número de linhas necessárias
+        rows = (dice_count + cols - 1) // cols  # Arredonda para cima
+        
+        # Posição inicial (centralizada)
+        grid_width = cols * dice_size + (cols - 1) * spacing_x
+        grid_height = rows * dice_size + (rows - 1) * spacing_y
+        start_x = center_x - grid_width // 2 + dice_size // 2
+        start_y = center_y - grid_height // 2 + dice_size // 2
+        
+        # Fator de rotação baseado no tempo para animação
+        rotation_factor = pygame.time.get_ticks() / 100.0
         
         for i in range(dice_count):
-            y = start_y + i * (dice_size + spacing)
+            row = i // cols
+            col = i % cols
+            
+            x = start_x + col * (dice_size + spacing_x)
+            y = start_y + row * (dice_size + spacing_y)
             
             # Valor aleatório para animação
             value = random.randint(1, 6)
             
-            # Desenha dado
-            dice_rect = pygame.Rect(center_x - dice_size//2, y, dice_size, dice_size)
-            pygame.draw.rect(self.screen, color, dice_rect)
-            pygame.draw.rect(self.screen, WHITE, dice_rect, 2)
+            # Oscilação para efeito de rotação
+            angle = math.sin(rotation_factor + i) * 15
+            scale_factor = 1.0 + math.cos(rotation_factor + i * 0.5) * 0.1
             
-            # Valor
-            value_text = self.font_medium.render(str(value), True, WHITE)
-            value_rect = value_text.get_rect(center=dice_rect.center)
-            self.screen.blit(value_text, value_rect)
+            # Desenha dado 3D
+            self._draw_3d_die(x, y, dice_size, value, color, angle, scale_factor)
+    
+    def _draw_3d_die(self, center_x, center_y, size, value, color, angle=0, scale=1.0):
+        """Desenha um dado com aparência 3D e pontinhos"""
+        import math
+        
+        # Aplica escala
+        actual_size = int(size * scale)
+        
+        # Sombra
+        shadow_offset = 4
+        shadow_rect = pygame.Rect(
+            center_x - actual_size//2 + shadow_offset,
+            center_y - actual_size//2 + shadow_offset,
+            actual_size, actual_size
+        )
+        shadow_surface = pygame.Surface((actual_size, actual_size), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surface, (0, 0, 0, 100), shadow_surface.get_rect(), border_radius=8)
+        self.screen.blit(shadow_surface, shadow_rect)
+        
+        # Corpo do dado (cor do jogador)
+        dice_rect = pygame.Rect(
+            center_x - actual_size//2,
+            center_y - actual_size//2,
+            actual_size, actual_size
+        )
+        
+        # Fundo da cor do jogador
+        pygame.draw.rect(self.screen, color, dice_rect, border_radius=8)
+        
+        # Borda mais escura para destaque
+        darker_color = tuple(max(0, c - 40) for c in color)
+        pygame.draw.rect(self.screen, darker_color, dice_rect, 3, border_radius=8)
+        
+        # Efeito de brilho mais intenso (canto superior esquerdo)
+        shine_surface = pygame.Surface((actual_size//2, actual_size//2), pygame.SRCALPHA)
+        pygame.draw.rect(shine_surface, (255, 255, 255, 80), shine_surface.get_rect(), border_radius=4)
+        self.screen.blit(shine_surface, (dice_rect.x + 5, dice_rect.y + 5))
+        
+        # Desenha os pontinhos
+        self._draw_die_pips(dice_rect, value, color)
+    
+    def _draw_die_pips(self, dice_rect, value, color):
+        """Desenha os pontinhos (pips) do dado baseado no valor"""
+        pip_radius = max(4, dice_rect.width // 12)
+        pip_color = WHITE  # Branco para contrastar com a cor do dado
+        
+        cx = dice_rect.centerx
+        cy = dice_rect.centery
+        offset = dice_rect.width // 4
+        
+        # Posições dos pontinhos
+        positions = {
+            'center': (cx, cy),
+            'top_left': (cx - offset, cy - offset),
+            'top_right': (cx + offset, cy - offset),
+            'middle_left': (cx - offset, cy),
+            'middle_right': (cx + offset, cy),
+            'bottom_left': (cx - offset, cy + offset),
+            'bottom_right': (cx + offset, cy + offset),
+        }
+        
+        # Define quais pontinhos desenhar para cada valor
+        pip_patterns = {
+            1: ['center'],
+            2: ['top_left', 'bottom_right'],
+            3: ['top_left', 'center', 'bottom_right'],
+            4: ['top_left', 'top_right', 'bottom_left', 'bottom_right'],
+            5: ['top_left', 'top_right', 'center', 'bottom_left', 'bottom_right'],
+            6: ['top_left', 'top_right', 'middle_left', 'middle_right', 'bottom_left', 'bottom_right'],
+        }
+        
+        # Desenha os pontinhos
+        for pip_name in pip_patterns.get(value, []):
+            pos = positions[pip_name]
+            # Sombra do pontinho para profundidade
+            pygame.draw.circle(self.screen, (0, 0, 0, 80), 
+                             (pos[0] + 1, pos[1] + 1), pip_radius)
+            # Pontinho principal (branco)
+            pygame.draw.circle(self.screen, pip_color, pos, pip_radius)
+            # Brilho no pontinho
+            pygame.draw.circle(self.screen, (255, 255, 255), 
+                             (pos[0] - pip_radius//4, pos[1] - pip_radius//4), 
+                             pip_radius//4)
     
     def render_dice_results(self, attacker, defender, attacker_dice, defender_dice, logos):
         """Renderiza resultados dos dados com opção de re-roll para Linux"""
@@ -678,9 +776,9 @@ class UIManager:
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
         
-        # Painel central
+        # Painel central (mais alto para acomodar grid de dados)
         panel_width = 800
-        panel_height = 600
+        panel_height = 650
         panel_x = (WINDOW_WIDTH - panel_width) // 2
         panel_y = (WINDOW_HEIGHT - panel_height) // 2
         
@@ -696,7 +794,7 @@ class UIManager:
         # Dados do atacante (esquerda)
         attacker_can_reroll = attacker.can_reroll()
         self.attacker_dice_rects = self._render_result_dice(
-            panel_x + 150, panel_y + 250,
+            panel_x + 150, panel_y + 310,
             attacker_dice, attacker.color, attacker.name,
             attacker_can_reroll, "attacker"
         )
@@ -704,7 +802,7 @@ class UIManager:
         # Dados do defensor (direita)
         defender_can_reroll = defender.can_reroll()
         self.defender_dice_rects = self._render_result_dice(
-            panel_x + panel_width - 150, panel_y + 250,
+            panel_x + panel_width - 150, panel_y + 310,
             defender_dice, defender.color, defender.name,
             defender_can_reroll, "defender"
         )
@@ -736,36 +834,57 @@ class UIManager:
     
     def _render_result_dice(self, center_x, center_y, dice_values, color, player_name,
                             can_reroll, side):
-        """Renderiza dados com valores finais (clicáveis se Linux)"""
+        """Renderiza dados com valores finais (clicáveis se Linux) em grid 2 colunas"""
         # Nome do jogador
         name_text = self.font_medium.render(player_name, True, color)
-        name_rect = name_text.get_rect(center=(center_x, center_y - 120))
+        name_rect = name_text.get_rect(center=(center_x, center_y - 140))
         self.screen.blit(name_text, name_rect)
         
-        # Renderiza cada dado
-        dice_size = 50
-        spacing = 10
+        # Configuração do grid de dados
+        dice_size = 60
+        spacing_x = 20  # Espaçamento horizontal entre colunas
+        spacing_y = 15  # Espaçamento vertical entre linhas
+        cols = 2  # 2 colunas
         dice_count = len(dice_values)
-        start_y = center_y - ((dice_count * (dice_size + spacing)) // 2)
+        
+        # Calcula número de linhas necessárias
+        rows = (dice_count + cols - 1) // cols  # Arredonda para cima
+        
+        # Posição inicial (centralizada)
+        grid_width = cols * dice_size + (cols - 1) * spacing_x
+        grid_height = rows * dice_size + (rows - 1) * spacing_y
+        start_x = center_x - grid_width // 2 + dice_size // 2
+        start_y = center_y - grid_height // 2 + dice_size // 2
         
         dice_rects = []
         
         for i, value in enumerate(dice_values):
-            y = start_y + i * (dice_size + spacing)
+            row = i // cols
+            col = i % cols
             
-            # Desenha dado
-            dice_rect = pygame.Rect(center_x - dice_size//2, y, dice_size, dice_size)
-            pygame.draw.rect(self.screen, color, dice_rect)
+            x = start_x + col * (dice_size + spacing_x)
+            y = start_y + row * (dice_size + spacing_y)
             
-            # Borda mais grossa se clicável
-            border_width = 3 if can_reroll else 2
-            pygame.draw.rect(self.screen, WHITE, dice_rect, border_width)
+            # Desenha dado 3D
+            scale = 1.05 if can_reroll else 1.0  # Ligeiramente maior se clicável
+            self._draw_3d_die(x, y, dice_size, value, color, angle=0, scale=scale)
             
-            # Valor
-            value_text = self.font_medium.render(str(value), True, WHITE)
-            value_rect = value_text.get_rect(center=dice_rect.center)
-            self.screen.blit(value_text, value_rect)
+            # Adiciona um indicador visual se for clicável (brilho extra)
+            if can_reroll:
+                dice_rect = pygame.Rect(
+                    x - dice_size//2,
+                    y - dice_size//2,
+                    dice_size, dice_size
+                )
+                # Overlay pulsante para indicar que é clicável
+                pulse = abs(pygame.time.get_ticks() % 1000 - 500) / 500.0  # 0 a 1
+                overlay = pygame.Surface((dice_size, dice_size), pygame.SRCALPHA)
+                alpha = int(30 + pulse * 30)  # 30 a 60
+                pygame.draw.rect(overlay, (255, 255, 255, alpha), overlay.get_rect(), border_radius=8)
+                self.screen.blit(overlay, dice_rect)
             
+            # Armazena retângulo para detecção de clique
+            dice_rect = pygame.Rect(x - dice_size//2, y - dice_size//2, dice_size, dice_size)
             dice_rects.append((dice_rect, i))
         
         return dice_rects
