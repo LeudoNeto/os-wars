@@ -25,7 +25,7 @@ class Roulette:
             screen: Surface do pygame
         """
         self.screen = screen
-        self.events = get_all_events()
+        self.events = get_all_events()  # Começa com eventos padrão
         self.current_angle = 0
         self.spinning = False
         self.spin_speed = 0
@@ -46,6 +46,14 @@ class Roulette:
             (155, 89, 182),   # Roxo
             (230, 126, 34)    # Laranja
         ]
+    
+    def set_player_events(self, player_name):
+        """Define os eventos para um jogador específico
+        
+        Args:
+            player_name: Nome do jogador
+        """
+        self.events = get_all_events(player_name)
     
     def start_spin(self):
         """Inicia a rotação da roleta"""

@@ -114,21 +114,60 @@ DICE_CONTROL_DIVISOR = 20  # Divisor para calcular quantidade de dados
 MIN_DICE = 1  # Mínimo de dados
 WIN_PERCENTAGE = 90  # Porcentagem necessária para vencer
 
-# Eventos aleatórios
-RANDOM_EVENTS = [
-    {"label": "-30%", "percentage": -30, "name": "Bug Crítico", 
-     "description": "Um bug crítico foi descoberto! -30% de controle"},
-    {"label": "-20%", "percentage": -20, "name": "Ataque Hacker", 
-     "description": "Hackers atacaram os servidores! -20% de controle"},
-    {"label": "-10%", "percentage": -10, "name": "Falha de Segurança", 
-     "description": "Uma falha de segurança foi encontrada! -10% de controle"},
-    {"label": "+10%", "percentage": 10, "name": "Atualização Popular", 
-     "description": "Nova atualização ganhou popularidade! +10% de controle"},
-    {"label": "+20%", "percentage": 20, "name": "Campanha de Marketing", 
-     "description": "Campanha de marketing bem-sucedida! +20% de controle"},
-    {"label": "+30%", "percentage": 30, "name": "Lançamento Revolucionário", 
-     "description": "Novo recurso revolucionário! +30% de controle"}
-]
+# Eventos aleatórios por SO
+RANDOM_EVENTS = {
+    "Windows": [
+        # Eventos Negativos (baseados em incidentes reais)
+        {"label": "-30%", "percentage": -30, "name": "Falha CrowdStrike Global", 
+         "description": "Atualização defeituosa da CrowdStrike causa Blue Screen of Death em milhões de PCs mundialmente! -30% de controle"},
+        {"label": "-20%", "percentage": -20, "name": "Update KB Quebrado", 
+         "description": "Atualização do Windows quebra recursos essenciais do sistema! -20% de controle"},
+        {"label": "-10%", "percentage": -10, "name": "Vulnerabilidade RDP", 
+         "description": "Falha crítica no Remote Desktop permite invasões! -10% de controle"},
+        
+        # Eventos Positivos (baseados em sucessos reais)
+        {"label": "+10%", "percentage": 10, "name": "DirectX 12 Lançado", 
+         "description": "Nova versão do DirectX revoluciona performance em jogos! +10% de controle"},
+        {"label": "+20%", "percentage": 20, "name": "Windows Subsystem for Linux", 
+         "description": "WSL conquista desenvolvedores ao trazer Linux nativo para Windows! +20% de controle"},
+        {"label": "+30%", "percentage": 30, "name": "Copilot+ PC Launch", 
+         "description": "Windows com IA integrada atrai milhões de usuários empresariais! +30% de controle"}
+    ],
+    "MacOS": [
+        # Eventos Negativos (baseados em incidentes reais)
+        {"label": "-30%", "percentage": -30, "name": "Root Login Sem Senha", 
+         "description": "Bug crítico no macOS High Sierra permite acesso root sem senha! -30% de controle"},
+        {"label": "-20%", "percentage": -20, "name": "Gatekeeper Bypass", 
+         "description": "Falha permite malware burlar proteções de segurança do macOS! -20% de controle"},
+        {"label": "-10%", "percentage": -10, "name": "WebKit Zero-Day", 
+         "description": "Vulnerabilidade WebKit sendo explorada ativamente contra Macs! -10% de controle"},
+        
+        # Eventos Positivos (baseados em sucessos reais)
+        {"label": "+10%", "percentage": 10, "name": "Continuity Camera", 
+         "description": "iPhone como webcam do Mac viraliza nas redes sociais! +10% de controle"},
+        {"label": "+20%", "percentage": 20, "name": "Apple Silicon M1", 
+         "description": "Chips M1 superam Intel em performance e eficiência energética! +20% de controle"},
+        {"label": "+30%", "percentage": 30, "name": "Apple Intelligence", 
+         "description": "IA integrada ao macOS conquista profissionais criativos! +30% de controle"}
+    ],
+    "Linux": [
+        # Eventos Negativos (baseados em incidentes reais)
+        {"label": "-30%", "percentage": -30, "name": "Dirty Pipe Kernel Bug", 
+         "description": "Vulnerabilidade crítica permite escalonamento de privilégios no kernel! -30% de controle"},
+        {"label": "-20%", "percentage": -20, "name": "Log4Shell Exploit", 
+         "description": "Falha Apache Log4j afeta milhões de servidores Linux! -20% de controle"},
+        {"label": "-10%", "percentage": -10, "name": "Sudo Privilege Bug", 
+         "description": "Bug no sudo permite usuários locais obterem acesso root! -10% de controle"},
+        
+        # Eventos Positivos (baseados em sucessos reais)
+        {"label": "+10%", "percentage": 10, "name": "Steam Deck Success", 
+         "description": "Steam Deck com Linux prova viabilidade de gaming portátil! +10% de controle"},
+        {"label": "+20%", "percentage": 20, "name": "Android Domination", 
+         "description": "Linux kernel no Android atinge 70% dos dispositivos móveis! +20% de controle"},
+        {"label": "+30%", "percentage": 30, "name": "Supercomputação Total", 
+         "description": "Linux alcança 100% dos Top 500 supercomputadores do mundo! +30% de controle"}
+    ]
+}
 
 # Etapas do turno
 PHASE_ATTACK = "Ataque"

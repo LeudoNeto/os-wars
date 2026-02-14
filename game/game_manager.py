@@ -200,6 +200,10 @@ class GameManager:
                 self.event_finished = False
                 self._next_turn()
             else:
+                # Carrega eventos do jogador atual
+                current_player = self.turn_manager.get_current_player()
+                self.roulette.set_player_events(current_player.name)
+                
                 # Inicia roleta
                 self.showing_roulette = True
                 self.roulette.start_spin()
