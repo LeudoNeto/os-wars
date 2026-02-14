@@ -5,6 +5,7 @@ Gerenciador principal do jogo
 import pygame
 import os
 import random
+import math
 from game.models.player import Player
 from game.models.continent import Continent
 from game.models.event import get_random_event
@@ -17,7 +18,7 @@ from game.utils.constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, WINDOW_TITLE,
     OCEAN_BLUE, PLAYERS, CONTINENTS, CONTINENT_FILES,
     LOGO_FILES, CONTINENTS_DIR, LOGOS_DIR, WIN_PERCENTAGE,
-    PHASE_EVENT, BUTTON_X, BUTTON_Y
+    PHASE_EVENT, BUTTON_X, BUTTON_Y, PLAYER_COLORS, CONTINENT_INFO_OFFSET
 )
 from game.utils.helpers import (
     distribute_initial_control, calculate_total_control, apply_event
@@ -74,6 +75,9 @@ class GameManager:
         self.event_result = None  # Dados do resultado do evento
         self.event_finished = False  # Indica se o evento já terminou e aguarda "Passar Turno"
         
+        # Animação
+        self.animation_offset = 0  # Offset para animar as setas
+        
         # Inicia o primeiro turno
         max_attacks = self.combat_system.get_max_attacks_for_player(
             self.turn_manager.get_current_player().name,
@@ -109,6 +113,9 @@ class GameManager:
     def run(self):
         """Loop principal do jogo"""
         while self.running:
+            # Atualiza animação
+            self.animation_offset = (self.animation_offset + 2) % 60
+            
             self._handle_events()
             self._update()
             self._render()
@@ -322,6 +329,61 @@ class GameManager:
         # Verifica condição de vitória
         self._check_win_condition()
     
+    def _draw_attack_arrows(self, from_continent, to_continent, color):
+        """Desenha setas animadas indicando trajetória de ataque"""
+        # Aplica offset das informações de controle para usar como pontos da trajetória
+        from_offset_x, from_offset_y = CONTINENT_INFO_OFFSET.get(from_continent.name, (0, 0))
+        to_offset_x, to_offset_y = CONTINENT_INFO_OFFSET.get(to_continent.name, (0, 0))
+        
+        # Pontos com offset aplicado (onde ficam as porcentagens)
+        start_x = from_continent.rect.centerx + from_offset_x
+        start_y = from_continent.rect.centery + from_offset_y
+        end_x = to_continent.rect.centerx + to_offset_x
+        end_y = to_continent.rect.centery + to_offset_y
+        
+        # Calcula direção e distância
+        dx = end_x - start_x
+        dy = end_y - start_y
+        distance = math.sqrt(dx*dx + dy*dy)
+        
+        if distance < 1:
+            return
+        
+        # Normaliza direção
+        dx /= distance
+        dy /= distance
+        
+        # Cria fonte para as setas
+        font = pygame.font.Font(None, 32)
+        
+        # Desenha múltiplas setas ao longo da linha
+        arrow_spacing = 60  # Espaçamento entre setas
+        num_arrows = int(distance / arrow_spacing) + 1
+        
+        for i in range(num_arrows):
+            # Calcula posição base da seta
+            t = (i * arrow_spacing + self.animation_offset) % distance
+            
+            # Se passou da distância, não desenha
+            if t > distance - 20:
+                continue
+            
+            x = start_x + dx * t
+            y = start_y + dy * t
+            
+            # Desenha a seta ">"
+            arrow_text = font.render(">", True, color)
+            
+            # Calcula ângulo de rotação para apontar na direção certa
+            angle = math.degrees(math.atan2(dy, dx))
+            rotated_arrow = pygame.transform.rotate(arrow_text, -angle)
+            
+            # Centraliza a seta na posição
+            arrow_rect = rotated_arrow.get_rect(center=(int(x), int(y)))
+            
+            # Desenha a seta com um brilho
+            self.screen.blit(rotated_arrow, arrow_rect)
+    
     def _check_win_condition(self):
         """Verifica se algum jogador venceu"""
         for player in self.players:
@@ -359,13 +421,26 @@ class GameManager:
         highlight = self.selected_attack_continent if self.selected_attack_continent else self.hovered_continent
         self.map_renderer.render(highlight)
         
-        # Destaque do continente selecionado para ataque
+        current_player = self.turn_manager.get_current_player()
+        player_color = PLAYER_COLORS[current_player.name]
+        
+        # Destaque do continente selecionado para ataque (com cor do jogador)
         if self.selected_attack_continent and not self.showing_combat_result:
             rect = self.selected_attack_continent.rect
-            pygame.draw.rect(self.screen, (255, 255, 0), rect, 4)
+            pygame.draw.rect(self.screen, player_color, rect, 4)
+        
+        # Desenha setas animadas se há um continente selecionado e um sob o mouse
+        if (self.selected_attack_continent and self.hovered_continent and 
+            not self.showing_combat_result and 
+            self.hovered_continent != self.selected_attack_continent and
+            self._can_attack(self.selected_attack_continent, self.hovered_continent)):
+            self._draw_attack_arrows(
+                self.selected_attack_continent, 
+                self.hovered_continent, 
+                player_color
+            )
         
         # Painel inferior (sempre visível)
-        current_player = self.turn_manager.get_current_player()
         total_control = calculate_total_control(
             {c.name: c.control for c in self.continents},
             current_player.name
