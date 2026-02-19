@@ -1298,7 +1298,7 @@ class UIManager:
         Trata cliques no menu principal
         
         Returns:
-            True se clicou no botão Jogar, False caso contrário
+            "play" se clicou no botão Jogar, "toggle" se alternou player/IA, None caso contrário
         """
         # Verifica clique nos ícones de player/IA
         if hasattr(self, 'os_icon_rects'):
@@ -1309,9 +1309,9 @@ class UIManager:
                         self.os_control_mode[os_name] = "ai"
                     else:
                         self.os_control_mode[os_name] = "player"
-                    return False  # Não inicia o jogo, apenas alterna
+                    return "toggle"  # Indica que alternou
         
         # Verifica clique no botão Jogar
         if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(pos):
-            return True
-        return False
+            return "play"
+        return None

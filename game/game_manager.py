@@ -14,11 +14,14 @@ from game.logic.turn_manager import TurnManager
 from game.ui.map_renderer import MapRenderer
 from game.ui.ui_manager import UIManager
 from game.ui.roulette import Roulette
+from game.utils.audio_manager import AudioManager
 from game.utils.constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, WINDOW_TITLE,
     OCEAN_BLUE, PLAYERS, CONTINENTS, CONTINENT_FILES,
     LOGO_FILES, CONTINENTS_DIR, LOGOS_DIR, WIN_PERCENTAGE,
-    PHASE_EVENT, BUTTON_X, BUTTON_Y, PLAYER_COLORS, CONTINENT_INFO_OFFSET
+    PHASE_EVENT, BUTTON_X, BUTTON_Y, PLAYER_COLORS, CONTINENT_INFO_OFFSET,
+    MUSIC_MENU, MUSIC_GAME, MUSIC_COMBAT,
+    SOUND_CLICK, SOUND_DICE_ROLL, SOUND_CONQUEST, SOUND_ROULETTE
 )
 from game.utils.helpers import (
     distribute_initial_control, calculate_total_control, apply_event
@@ -57,6 +60,9 @@ class GameManager:
         self.map_renderer = MapRenderer(self.screen, self.continents, self.logos)
         self.ui_manager = UIManager(self.screen, self.logos)
         self.roulette = Roulette(self.screen)
+        
+        # Áudio
+        self.audio_manager = AudioManager()
         
         # Estado do jogo
         self.running = True
@@ -97,6 +103,7 @@ class GameManager:
         # Animação do resultado
         self.combat_result_animation_start = 0
         self.combat_result_animation_duration = 3.0  # 2 segundos de animação
+        self.machine_gun_count = 0  # Conta quantas vezes tocou o som de conquista
         
         # Animação
         self.animation_offset = 0  # Offset para animar as setas
@@ -145,6 +152,9 @@ class GameManager:
     def run(self):
         """Loop principal do jogo"""
         import time
+        
+        # Inicia música do menu
+        self.audio_manager.play_music(MUSIC_MENU)
         
         while self.running:
             # Atualiza animação
@@ -212,6 +222,9 @@ class GameManager:
         
         # Se está mostrando resultado de combate
         if self.showing_combat_result:
+            self.audio_manager.play_sound(SOUND_CLICK)
+            # Volta para música do jogo
+            self.audio_manager.play_music(MUSIC_GAME)
             self.showing_combat_result = False
             self.combat_system.clear_last_result()
             self._check_win_condition()
@@ -219,6 +232,7 @@ class GameManager:
         
         # Se está mostrando resultado de evento
         if self.showing_event_result:
+            self.audio_manager.play_sound(SOUND_CLICK)
             self.showing_event_result = False
             self.showing_roulette = False
             self.event_applied_continent = None
@@ -252,6 +266,9 @@ class GameManager:
     
     def _handle_button_click(self):
         """Trata clique no botão"""
+        # Som de clique
+        self.audio_manager.play_sound(SOUND_CLICK)
+        
         if self.turn_manager.is_attack_phase():
             # Se há continente selecionado, cancela o ataque
             if self.selected_attack_continent:
@@ -273,25 +290,40 @@ class GameManager:
                 # Inicia roleta
                 self.showing_roulette = True
                 self.roulette.start_spin()
+                # Toca som da roleta (limitado a 3 segundos)
+                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
+                # Toca som da roleta (limitado a 3 segundos)
+                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
     
     def _handle_turn_confirmation_click(self, pos):
         """Trata cliques na confirmação de passar turno"""
         action = self.ui_manager.handle_turn_confirmation_click(pos)
         
         if action == "yes":
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Confirma passar o turno
             self.showing_turn_confirmation = False
             self.event_finished = False
             self._next_turn()
         elif action == "no":
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Cancela e volta ao jogo
             self.showing_turn_confirmation = False
     
     def _handle_main_menu_click(self, pos):
         """Trata cliques no menu principal"""
-        if self.ui_manager.handle_main_menu_click(pos):
+        action = self.ui_manager.handle_main_menu_click(pos)
+        
+        if action == "play":
+            # Toca som de clique
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Inicia o jogo
             self.showing_main_menu = False
+            # Muda para música do jogo
+            self.audio_manager.play_music(MUSIC_GAME)
+        elif action == "toggle":
+            # Toca som de clique ao alternar player/IA
+            self.audio_manager.play_sound(SOUND_CLICK)
     
     def _handle_right_click(self):
         """Trata clique com botão direito"""
@@ -348,10 +380,14 @@ class GameManager:
         selected_enemy = self.ui_manager.get_clicked_enemy(pos, enemies)
         
         if selected_enemy:
+            # Som de clique
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Vai para preparação de combate
             self.showing_enemy_selection = False
             self._prepare_combat(selected_enemy)
         elif self.ui_manager.is_cancel_enemy_selection_clicked(pos):
+            # Som de clique
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Cancela seleção
             self.showing_enemy_selection = False
             self.selected_attack_continent = None
@@ -360,6 +396,9 @@ class GameManager:
     def _prepare_combat(self, defender):
         """Prepara o combate, calculando máximo de dados para cada lado"""
         current_player = self.turn_manager.get_current_player()
+        
+        # Música de combate
+        self.audio_manager.play_music(MUSIC_COMBAT)
         
         # Reseta habilidade de re-roll para ambos os jogadores (1 vez por combate)
         current_player.ability_used = False
@@ -397,16 +436,21 @@ class GameManager:
         )
         
         if action == "attacker_increase":
+            self.audio_manager.play_sound(SOUND_CLICK)
             self.attacker_dice_count = min(self.attacker_dice_count + 1, self.max_attacker_dice)
         elif action == "attacker_decrease":
+            self.audio_manager.play_sound(SOUND_CLICK)
             from game.utils.constants import MIN_DICE
             self.attacker_dice_count = max(self.attacker_dice_count - 1, MIN_DICE)
         elif action == "defender_increase":
+            self.audio_manager.play_sound(SOUND_CLICK)
             self.defender_dice_count = min(self.defender_dice_count + 1, self.max_defender_dice)
         elif action == "defender_decrease":
+            self.audio_manager.play_sound(SOUND_CLICK)
             from game.utils.constants import MIN_DICE
             self.defender_dice_count = max(self.defender_dice_count - 1, MIN_DICE)
         elif action == "roll":
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Inicia animação e rola os dados
             self._roll_dice()
     
@@ -414,6 +458,9 @@ class GameManager:
         """Rola os dados e inicia animação"""
         from game.utils.helpers import roll_dice
         import time
+        
+        # Som de dados rolando
+        self.audio_manager.play_sound(SOUND_DICE_ROLL)
         
         # Rola os dados
         self.attacker_dice_results = roll_dice(self.attacker_dice_count)
@@ -449,6 +496,7 @@ class GameManager:
             # Re-rola dado do atacante
             dice_index = int(action.split("_")[-1])
             if self.current_attacker.can_reroll():
+                self.audio_manager.play_sound(SOUND_DICE_ROLL)
                 from game.utils.helpers import roll_dice
                 self.attacker_dice_results[dice_index] = roll_dice(1)[0]
                 self.current_attacker.use_reroll()
@@ -457,11 +505,13 @@ class GameManager:
             # Re-rola dado do defensor
             dice_index = int(action.split("_")[-1])
             if self.current_defender.can_reroll():
+                self.audio_manager.play_sound(SOUND_DICE_ROLL)
                 from game.utils.helpers import roll_dice
                 self.defender_dice_results[dice_index] = roll_dice(1)[0]
                 self.current_defender.use_reroll()
         
         elif action == "continue":
+            self.audio_manager.play_sound(SOUND_CLICK)
             # Finaliza o combate e começa animação do resultado
             import time
             self.showing_dice_results = False
@@ -486,6 +536,9 @@ class GameManager:
             self.current_defender.name,
             attacker_wins
         )
+        
+        # Reseta contador do som de machine gun
+        self.machine_gun_count = 0
         
         # Salva resultado para exibição
         self.combat_system.last_combat_result = {
@@ -764,6 +817,19 @@ class GameManager:
         if self.showing_combat_result:
             import time
             animation_elapsed = time.time() - self.combat_result_animation_start
+            
+            # Toca som de machine gun durante a animação (2 vezes) se houve conquista
+            result = self.combat_system.last_combat_result
+            if result and result["attacker_wins"] > 0:
+                # Primeira vez no início da animação
+                if animation_elapsed >= 0.5 and self.machine_gun_count == 0:
+                    self.audio_manager.play_sound(SOUND_CONQUEST)
+                    self.machine_gun_count = 1
+                # Segunda vez após 1.2 segundos
+                elif animation_elapsed >= 1.2 and self.machine_gun_count == 1:
+                    self.audio_manager.play_sound(SOUND_CONQUEST)
+                    self.machine_gun_count = 2
+            
             self.ui_manager.render_combat_result(
                 self.combat_system.last_combat_result,
                 animation_elapsed,

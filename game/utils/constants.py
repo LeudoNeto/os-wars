@@ -207,3 +207,17 @@ ROULETTE_CENTER = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
 ROULETTE_RADIUS = 200
 ROULETTE_SPIN_TIME = 3000  # ms
 ROULETTE_SLOWDOWN = 0.95  # Fator de desaceleração
+
+# Áudio
+AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
+
+# Músicas de fundo
+MUSIC_MENU = os.path.join(AUDIO_DIR, "Digital Lemonade.mp3")
+MUSIC_GAME = os.path.join(AUDIO_DIR, "Ossuary 5 - Rest.mp3")
+MUSIC_COMBAT = os.path.join(AUDIO_DIR, "Clash Defiant.mp3")
+
+# Efeitos sonoros
+SOUND_CLICK = os.path.join(AUDIO_DIR, "normal-click.wav")
+SOUND_DICE_ROLL = os.path.join(AUDIO_DIR, "dice-rolling.wav")
+SOUND_CONQUEST = os.path.join(AUDIO_DIR, "machine-gun.aiff")
+SOUND_ROULETTE = os.path.join(AUDIO_DIR, "roulette.aiff")
