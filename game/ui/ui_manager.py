@@ -33,6 +33,13 @@ class UIManager:
         # Botão
         self.button_rect = pygame.Rect(BUTTON_X, BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT)
         self.button_hovered = False
+        
+        # Estado do menu: controle por player ou IA
+        self.os_control_mode = {
+            "Windows": "player",
+            "MacOS": "player",
+            "Linux": "player"
+        }
     
     def render_bottom_panel(self, current_player, current_phase, attacks_info, 
                            total_control, show_button=True, event_finished=False,
@@ -1114,3 +1121,197 @@ class UIManager:
         if hasattr(self, 'no_button_rect') and self.no_button_rect.collidepoint(pos):
             return "no"
         return None
+    
+    def render_main_menu(self, map_surface=None):
+        """Renderiza o menu principal
+        
+        Args:
+            map_surface: Surface opcional com o mapa renderizado para usar como fundo
+        """
+        # Mapa com blur no fundo
+        if map_surface:
+            # Cria overlay escuro semi-transparente
+            overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+            overlay.fill((0, 0, 30))
+            overlay.set_alpha(200)
+            self.screen.blit(map_surface, (0, 0))
+            self.screen.blit(overlay, (0, 0))
+        
+        # Logo do jogo no topo
+        if "game" in self.logos and self.logos["game"]:
+            logo = self.logos["game"]
+            # Escala para um tamanho adequado
+            logo_width, logo_height = logo.get_size()
+            max_logo_height = 300
+            if logo_height > max_logo_height:
+                scale_factor = max_logo_height / logo_height
+                new_width = int(logo_width * scale_factor)
+                logo = pygame.transform.scale(logo, (new_width, max_logo_height))
+            
+            logo_rect = logo.get_rect(center=(WINDOW_WIDTH // 2, 180))
+            self.screen.blit(logo, logo_rect)
+        else:
+            # Fallback: título em texto
+            title_font = pygame.font.Font(None, 72)
+            title_text = title_font.render("OS WARS", True, WHITE)
+            title_rect = title_text.get_rect(center=(WINDOW_WIDTH // 2, 180))
+            self.screen.blit(title_text, title_rect)
+        
+        # Cards dos sistemas operacionais
+        card_width = 350
+        card_height = 250
+        card_spacing = 50
+        total_cards_width = 3 * card_width + 2 * card_spacing
+        start_x = (WINDOW_WIDTH - total_cards_width) // 2
+        card_y = 380
+        
+        # Informações dos SOs
+        os_info = {
+            "Windows": {
+                "ability": "Ataca com 1 dado extra",
+                "color": (0, 150, 255)
+            },
+            "MacOS": {
+                "ability": "Defende com +1 em todos os dados",
+                "color": (128, 128, 128)
+            },
+            "Linux": {
+                "ability": "Re-rola 1 dado por combate",
+                "color": (255, 165, 0)
+            }
+        }
+        
+        os_names = ["Windows", "MacOS", "Linux"]
+        self.os_card_rects = {}  # Armazena retângulos dos cards para detecção de clique
+        self.os_icon_rects = {}  # Armazena retângulos dos ícones player/IA
+        
+        for i, os_name in enumerate(os_names):
+            card_x = start_x + i * (card_width + card_spacing)
+            
+            # Fundo do card (borda uniforme para todos)
+            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+            self.os_card_rects[os_name] = card_rect
+            pygame.draw.rect(self.screen, (30, 30, 50), card_rect)
+            pygame.draw.rect(self.screen, (100, 100, 120), card_rect, 3)
+            
+            # Logo do SO
+            if os_name in self.logos:
+                logo = pygame.transform.scale(self.logos[os_name], (100, 100))
+                logo_rect = logo.get_rect(center=(card_x + card_width // 2, card_y + 70))
+                self.screen.blit(logo, logo_rect)
+            
+            # Nome do SO
+            name_text = self.font_large.render(os_name, True, os_info[os_name]["color"])
+            name_rect = name_text.get_rect(center=(card_x + card_width // 2, card_y + 145))
+            self.screen.blit(name_text, name_rect)
+            
+            # Habilidade especial (quebra em duas linhas se necessário)
+            ability = os_info[os_name]["ability"]
+            # Divide o texto em palavras
+            words = ability.split()
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + word + " "
+                test_surface = self.font_small.render(test_line, True, WHITE)
+                if test_surface.get_width() <= card_width - 20:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line.strip())
+                    current_line = word + " "
+            if current_line:
+                lines.append(current_line.strip())
+            
+            # Renderiza as linhas
+            for j, line in enumerate(lines):
+                ability_text = self.font_small.render(line, True, WHITE)
+                ability_rect = ability_text.get_rect(
+                    center=(card_x + card_width // 2, card_y + 180 + j * 25)
+                )
+                self.screen.blit(ability_text, ability_rect)
+            
+            # Ícone de player/IA no canto inferior direito
+            icon_size = 40
+            icon_x = card_x + card_width - icon_size - 10
+            icon_y = card_y + card_height - icon_size - 10
+            icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
+            self.os_icon_rects[os_name] = icon_rect
+            
+            # Desenha o ícone baseado no modo
+            mode = self.os_control_mode[os_name]
+            if mode == "player":
+                # Ícone de jogador (pessoa simplificada)
+                pygame.draw.rect(self.screen, (50, 50, 70), icon_rect)
+                pygame.draw.rect(self.screen, (0, 200, 0), icon_rect, 2)
+                # Cabeça
+                pygame.draw.circle(self.screen, (0, 200, 0), 
+                                 (icon_x + icon_size // 2, icon_y + 12), 6)
+                # Corpo
+                pygame.draw.line(self.screen, (0, 200, 0),
+                               (icon_x + icon_size // 2, icon_y + 18),
+                               (icon_x + icon_size // 2, icon_y + 30), 2)
+                # Braços
+                pygame.draw.line(self.screen, (0, 200, 0),
+                               (icon_x + icon_size // 2 - 6, icon_y + 22),
+                               (icon_x + icon_size // 2 + 6, icon_y + 22), 2)
+                # Pernas
+                pygame.draw.line(self.screen, (0, 200, 0),
+                               (icon_x + icon_size // 2, icon_y + 30),
+                               (icon_x + icon_size // 2 - 5, icon_y + 36), 2)
+                pygame.draw.line(self.screen, (0, 200, 0),
+                               (icon_x + icon_size // 2, icon_y + 30),
+                               (icon_x + icon_size // 2 + 5, icon_y + 36), 2)
+            else:  # IA/robô
+                # Ícone de robô
+                pygame.draw.rect(self.screen, (50, 50, 70), icon_rect)
+                pygame.draw.rect(self.screen, (200, 0, 0), icon_rect, 2)
+                # Cabeça (quadrado)
+                head_rect = pygame.Rect(icon_x + 10, icon_y + 8, 20, 16)
+                pygame.draw.rect(self.screen, (200, 0, 0), head_rect, 2)
+                # Olhos
+                pygame.draw.circle(self.screen, (200, 0, 0),
+                                 (icon_x + 16, icon_y + 16), 2)
+                pygame.draw.circle(self.screen, (200, 0, 0),
+                                 (icon_x + 24, icon_y + 16), 2)
+                # Corpo
+                body_rect = pygame.Rect(icon_x + 8, icon_y + 24, 24, 12)
+                pygame.draw.rect(self.screen, (200, 0, 0), body_rect, 2)
+        
+        # Botão "Jogar"
+        button_width = 300
+        button_height = 60
+        button_x = (WINDOW_WIDTH - button_width) // 2
+        button_y = card_y + card_height + 60
+        
+        self.play_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (0, 150, 0), self.play_button_rect)
+        pygame.draw.rect(self.screen, WHITE, self.play_button_rect, 3)
+        
+        play_text = self.font_large.render("Jogar", True, WHITE)
+        play_text_rect = play_text.get_rect(center=self.play_button_rect.center)
+        self.screen.blit(play_text, play_text_rect)
+    
+    def handle_main_menu_click(self, pos):
+        """
+        Trata cliques no menu principal
+        
+        Returns:
+            True se clicou no botão Jogar, False caso contrário
+        """
+        # Verifica clique nos ícones de player/IA
+        if hasattr(self, 'os_icon_rects'):
+            for os_name, icon_rect in self.os_icon_rects.items():
+                if icon_rect.collidepoint(pos):
+                    # Alterna entre player e IA
+                    if self.os_control_mode[os_name] == "player":
+                        self.os_control_mode[os_name] = "ai"
+                    else:
+                        self.os_control_mode[os_name] = "player"
+                    return False  # Não inicia o jogo, apenas alterna
+        
+        # Verifica clique no botão Jogar
+        if hasattr(self, 'play_button_rect') and self.play_button_rect.collidepoint(pos):
+            return True
+        return False

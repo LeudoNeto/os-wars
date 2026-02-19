@@ -60,6 +60,7 @@ class GameManager:
         
         # Estado do jogo
         self.running = True
+        self.showing_main_menu = True
         self.game_over = False
         self.winner = None
         
@@ -120,6 +121,15 @@ class GameManager:
                 logo = pygame.Surface((80, 80), pygame.SRCALPHA)
                 logo.fill((100, 100, 100, 200))
                 logos[player] = logo
+        
+        # Carrega logo do jogo para o menu
+        game_logo_path = os.path.join(LOGOS_DIR, "oswars.png")
+        try:
+            logos["game"] = pygame.image.load(game_logo_path).convert_alpha()
+        except Exception as e:
+            print(f"Erro ao carregar logo do jogo: {e}")
+            logos["game"] = None
+        
         return logos
     
     def _load_continents(self):
@@ -175,6 +185,11 @@ class GameManager:
     
     def _handle_click(self, pos):
         """Trata cliques do mouse"""
+        # Se está mostrando menu principal
+        if self.showing_main_menu:
+            self._handle_main_menu_click(pos)
+            return
+        
         # Se está mostrando confirmação de passar turno
         if self.showing_turn_confirmation:
             self._handle_turn_confirmation_click(pos)
@@ -271,6 +286,12 @@ class GameManager:
         elif action == "no":
             # Cancela e volta ao jogo
             self.showing_turn_confirmation = False
+    
+    def _handle_main_menu_click(self, pos):
+        """Trata cliques no menu principal"""
+        if self.ui_manager.handle_main_menu_click(pos):
+            # Inicia o jogo
+            self.showing_main_menu = False
     
     def _handle_right_click(self):
         """Trata clique com botão direito"""
@@ -631,6 +652,19 @@ class GameManager:
         """Renderiza o jogo"""
         # Fundo
         self.screen.fill(OCEAN_BLUE)
+        
+        # Se está mostrando menu principal
+        if self.showing_main_menu:
+            # Renderiza o mapa primeiro para usar como fundo
+            self.map_renderer.render(None)
+            # Cria uma cópia da tela atual para passar como fundo
+            map_surface = self.screen.copy()
+            # Limpa a tela novamente
+            self.screen.fill(OCEAN_BLUE)
+            # Renderiza o menu com o mapa como fundo
+            self.ui_manager.render_main_menu(map_surface)
+            pygame.display.flip()
+            return
         
         # Mapa
         highlight = self.selected_attack_continent if self.selected_attack_continent else self.hovered_continent
