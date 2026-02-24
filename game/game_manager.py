@@ -21,7 +21,8 @@ from game.utils.constants import (
     LOGO_FILES, CONTINENTS_DIR, LOGOS_DIR, WIN_PERCENTAGE,
     PHASE_EVENT, BUTTON_X, BUTTON_Y, PLAYER_COLORS, CONTINENT_INFO_OFFSET,
     MUSIC_MENU, MUSIC_GAME, MUSIC_COMBAT,
-    SOUND_CLICK, SOUND_DICE_ROLL, SOUND_CONQUEST, SOUND_ROULETTE
+    SOUND_CLICK, SOUND_DICE_ROLL, SOUND_CONQUEST, SOUND_ROULETTE,
+    ADJACENT_CONTINENTS
 )
 from game.utils.helpers import (
     distribute_initial_control, calculate_total_control, apply_event
@@ -44,8 +45,13 @@ class GameManager:
         self.logos = self._load_logos()
         self.continents = self._load_continents()
         
-        # Inicializa jogadores
+        # Inicializa jogadores (será configurado ao iniciar o jogo)
         self.players = [Player(name) for name in PLAYERS]
+        
+        # Estado da IA
+        self.ai_action_timer = 0
+        self.ai_waiting = False
+        self.ai_action_delay = 2.0  # 2 segundos entre ações
         
         # Distribui controle inicial
         initial_control = distribute_initial_control()
@@ -317,6 +323,9 @@ class GameManager:
         if action == "play":
             # Toca som de clique
             self.audio_manager.play_sound(SOUND_CLICK)
+            # Configura jogadores baseado no modo selecionado
+            for player in self.players:
+                player.is_ai = self.ui_manager.os_control_mode[player.name] == "ai"
             # Inicia o jogo
             self.showing_main_menu = False
             # Muda para música do jogo
@@ -686,6 +695,170 @@ class GameManager:
                 self.winner = player
                 return
     
+    def _execute_ai_action(self):
+        """Executa a próxima ação da IA baseado no estado atual"""
+        current_player = self.turn_manager.get_current_player()
+        
+        # Se está mostrando resultado de combate, apenas avança
+        if self.showing_combat_result:
+            print(f"[IA-{current_player.name}] Visualizando resultado do combate...")
+            self.audio_manager.play_sound(SOUND_CLICK)
+            self.audio_manager.play_music(MUSIC_GAME)
+            self.showing_combat_result = False
+            self.combat_system.clear_last_result()
+            self._check_win_condition()
+            return
+        
+        # Se está mostrando dados, trata re-roll ou continua
+        if self.showing_dice_results:
+            self._ai_handle_dice_results()
+            return
+        
+        # Se está em preparação de combate, rola os dados
+        if self.preparing_combat:
+            print(f"[IA-{current_player.name}] Rolando dados: {self.attacker_dice_count} atacante vs {self.defender_dice_count} defensor")
+            self.audio_manager.play_sound(SOUND_CLICK)
+            self._roll_dice()
+            return
+        
+        # Se está mostrando seleção de inimigo
+        if self.showing_enemy_selection:
+            self._ai_select_enemy()
+            return
+        
+        # Se está mostrando resultado de evento
+        if self.showing_event_result:
+            print(f"[IA-{current_player.name}] Evento aplicado!")
+            self.audio_manager.play_sound(SOUND_CLICK)
+            self.showing_event_result = False
+            self.showing_roulette = False
+            self.event_applied_continent = None
+            self.event_result = None
+            self.event_finished = True
+            return
+        
+        # Se está mostrando a roleta
+        if self.showing_roulette:
+            if not self.roulette.is_spinning():
+                print(f"[IA-{current_player.name}] Aplicando evento aleatório...")
+                self._apply_random_event()
+            return
+        
+        # Se está mostrando confirmação de passar turno
+        if self.showing_turn_confirmation:
+            print(f"[IA-{current_player.name}] Passando o turno...")
+            self.audio_manager.play_sound(SOUND_CLICK)
+            self.showing_turn_confirmation = False
+            self.event_finished = False
+            self._next_turn()
+            return
+        
+        # Fase de ataque
+        if self.turn_manager.is_attack_phase():
+            if self.turn_manager.can_attack():
+                self._ai_execute_attack()
+            else:
+                # Não tem mais ataques, passa para fase de evento
+                print(f"[IA-{current_player.name}] Sem mais ataques. Passando para fase de evento...")
+                self.audio_manager.play_sound(SOUND_CLICK)
+                self.turn_manager.skip_attack_phase()
+                self.selected_attack_continent = None
+            return
+        
+        # Fase de evento
+        if self.turn_manager.is_event_phase():
+            if self.event_finished:
+                # Evento já terminou, mostra confirmação
+                print(f"[IA-{current_player.name}] Solicitando passar o turno...")
+                self.showing_turn_confirmation = True
+            else:
+                # Executa evento
+                print(f"[IA-{current_player.name}] Iniciando roleta de eventos...")
+                self.roulette.set_player_events(current_player.name)
+                self.showing_roulette = True
+                self.roulette.start_spin()
+                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
+            return
+    
+    def _ai_execute_attack(self):
+        """IA executa um ataque"""
+        current_player = self.turn_manager.get_current_player()
+        
+        # Escolhe continente atacante aleatório (entre os que tem presença)
+        valid_attackers = [c for c in self.continents if c.get_control_percentage(current_player.name) > 0]
+        
+        if not valid_attackers:
+            print(f"[IA-{current_player.name}] Sem continentes para atacar!")
+            self.turn_manager.skip_attack_phase()
+            return
+        
+        attacker_continent = random.choice(valid_attackers)
+        
+        # Escolhe alvo: próprio continente ou adjacente aleatório
+        possible_targets = [attacker_continent]
+        adjacent_names = ADJACENT_CONTINENTS.get(attacker_continent.name, [])
+        for adj_name in adjacent_names:
+            adj_continent = next((c for c in self.continents if c.name == adj_name), None)
+            if adj_continent:
+                possible_targets.append(adj_continent)
+        
+        target_continent = random.choice(possible_targets)
+        
+        print(f"[IA-{current_player.name}] Atacando de '{attacker_continent.name}' para '{target_continent.name}'")
+        
+        self.selected_attack_continent = attacker_continent
+        self.selected_target_continent = target_continent
+        
+        # Mostra seleção de inimigo
+        self.showing_enemy_selection = True
+    
+    def _ai_select_enemy(self):
+        """IA seleciona um inimigo aleatório"""
+        current_player = self.turn_manager.get_current_player()
+        enemies = [p for p in self.players if p.name != current_player.name]
+        
+        # Escolhe inimigo aleatório
+        selected_enemy = random.choice(enemies)
+        
+        print(f"[IA-{current_player.name}] Alvo: {selected_enemy.name}")
+        
+        self.audio_manager.play_sound(SOUND_CLICK)
+        self.showing_enemy_selection = False
+        self._prepare_combat(selected_enemy)
+    
+    def _ai_handle_dice_results(self):
+        """IA trata resultados de dados e re-roll"""
+        current_player = self.turn_manager.get_current_player()
+        
+        # Se é Linux e pode re-rolar, re-rola o menor dado do atacante
+        if current_player.name == "Linux" and current_player.can_reroll() and self.current_attacker == current_player:
+            # Encontra o menor dado
+            min_index = self.attacker_dice_results.index(min(self.attacker_dice_results))
+            old_value = self.attacker_dice_results[min_index]
+            
+            print(f"[IA-{current_player.name}] Re-rolando o menor dado ({old_value})...")
+            
+            self.audio_manager.play_sound(SOUND_DICE_ROLL)
+            from game.utils.helpers import roll_dice
+            self.attacker_dice_results[min_index] = roll_dice(1)[0]
+            current_player.use_reroll()
+            
+            print(f"[IA-{current_player.name}] Novo valor: {self.attacker_dice_results[min_index]}")
+            
+            # Aguarda antes de continuar
+            import time
+            self.ai_action_timer = time.time()
+            self.ai_waiting = True
+            return
+        
+        # Continua para finalização do combate
+        print(f"[IA-{current_player.name}] Finalizando combate...")
+        self.audio_manager.play_sound(SOUND_CLICK)
+        import time
+        self.showing_dice_results = False
+        self._finish_combat()
+        self.combat_result_animation_start = time.time()
+    
     def _handle_mouse_motion(self, pos):
         """Trata movimento do mouse"""
         # Atualiza hover do botão
@@ -697,9 +870,26 @@ class GameManager:
     
     def _update(self):
         """Atualiza estado do jogo"""
+        import time
+        
         # Atualiza roleta se estiver girando
         if self.showing_roulette and self.roulette.is_spinning():
             self.roulette.update()
+        
+        # IA: executa ações automaticamente
+        if not self.showing_main_menu and not self.game_over:
+            current_player = self.turn_manager.get_current_player()
+            
+            if current_player.is_ai and not self.ai_waiting:
+                # Inicia timer de ação da IA
+                self.ai_waiting = True
+                self.ai_action_timer = time.time()
+            
+            if current_player.is_ai and self.ai_waiting:
+                # Espera o delay antes de executar a próxima ação
+                if time.time() - self.ai_action_timer >= self.ai_action_delay:
+                    self.ai_waiting = False
+                    self._execute_ai_action()
     
     def _render(self):
         """Renderiza o jogo"""

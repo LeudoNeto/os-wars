@@ -8,17 +8,19 @@ from game.utils.constants import PLAYER_COLORS, SPECIAL_ABILITIES
 class Player:
     """Representa um jogador (Sistema Operacional)"""
     
-    def __init__(self, name):
+    def __init__(self, name, is_ai=False):
         """
         Inicializa um jogador.
         
         Args:
             name: Nome do SO (Windows, MacOS ou Linux)
+            is_ai: Se o jogador é controlado por IA
         """
         self.name = name
         self.color = PLAYER_COLORS[name]
         self.ability = SPECIAL_ABILITIES[name]
         self.ability_used = False  # Para Linux que pode re-rolar 1x por combate
+        self.is_ai = is_ai
     
     def reset_turn_abilities(self):
         """Reseta habilidades que são por turno"""
