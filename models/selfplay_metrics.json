@@ -1,0 +1,25 @@
+{
+  "phase": "self_play",
+  "rounds": 69,
+  "total_time": 11071.627825975418,
+  "players": {
+    "Windows": {
+      "episodes": 6900,
+      "wins": 1230,
+      "win_rate": 17.82608695652174,
+      "epsilon": 0.05
+    },
+    "MacOS": {
+      "episodes": 6900,
+      "wins": 1625,
+      "win_rate": 23.55072463768116,
+      "epsilon": 0.05
+    },
+    "Linux": {
+      "episodes": 6813,
+      "wins": 1296,
+      "win_rate": 19.0224570673712,
+      "epsilon": 0.05
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "phase1": [
+    {
+      "os": "Windows",
+      "episodes": 2500,
+      "win_rate": 27.279999999999998,
+      "avg_reward": 20.123411999999995,
+      "time_seconds": 541.020489692688,
+      "epsilon_final": 0.05
+    },
+    {
+      "os": "MacOS",
+      "episodes": 2500,
+      "win_rate": 44.16,
+      "avg_reward": 44.30064399999999,
+      "time_seconds": 527.1826977729797,
+      "epsilon_final": 0.05
+    },
+    {
+      "os": "Linux",
+      "episodes": 2500,
+      "win_rate": 18.8,
+      "avg_reward": 15.45975599999998,
+      "time_seconds": 515.8985641002655,
+      "epsilon_final": 0.05
+    }
+  ]
+}

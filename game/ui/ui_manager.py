@@ -1232,7 +1232,7 @@ class UIManager:
                 )
                 self.screen.blit(ability_text, ability_rect)
             
-            # Ícone de player/IA no canto inferior direito
+            # Ícone de player/IA/RL no canto inferior direito
             icon_size = 40
             icon_x = card_x + card_width - icon_size - 10
             icon_y = card_y + card_height - icon_size - 10
@@ -1263,8 +1263,8 @@ class UIManager:
                 pygame.draw.line(self.screen, (0, 200, 0),
                                (icon_x + icon_size // 2, icon_y + 30),
                                (icon_x + icon_size // 2 + 5, icon_y + 36), 2)
-            else:  # IA/robô
-                # Ícone de robô
+            elif mode == "ai":
+                # Ícone de robô (IA aleatória)
                 pygame.draw.rect(self.screen, (50, 50, 70), icon_rect)
                 pygame.draw.rect(self.screen, (200, 0, 0), icon_rect, 2)
                 # Cabeça (quadrado)
@@ -1278,6 +1278,27 @@ class UIManager:
                 # Corpo
                 body_rect = pygame.Rect(icon_x + 8, icon_y + 24, 24, 12)
                 pygame.draw.rect(self.screen, (200, 0, 0), body_rect, 2)
+            else:  # RL
+                # Ícone de cérebro/rede neural (RL)
+                rl_color = (0, 180, 255)  # Azul ciano
+                pygame.draw.rect(self.screen, (50, 50, 70), icon_rect)
+                pygame.draw.rect(self.screen, rl_color, icon_rect, 2)
+                # Cérebro simplificado: círculo com conexões
+                cx, cy = icon_x + icon_size // 2, icon_y + icon_size // 2
+                pygame.draw.circle(self.screen, rl_color, (cx, cy - 4), 10, 2)
+                # Nodos da rede neural
+                pygame.draw.circle(self.screen, rl_color, (cx - 8, cy + 10), 3)
+                pygame.draw.circle(self.screen, rl_color, (cx, cy + 10), 3)
+                pygame.draw.circle(self.screen, rl_color, (cx + 8, cy + 10), 3)
+                # Conexões
+                pygame.draw.line(self.screen, rl_color, (cx, cy + 6), (cx - 8, cy + 7), 1)
+                pygame.draw.line(self.screen, rl_color, (cx, cy + 6), (cx, cy + 7), 1)
+                pygame.draw.line(self.screen, rl_color, (cx, cy + 6), (cx + 8, cy + 7), 1)
+                # Texto "RL"
+                rl_font = pygame.font.Font(None, 14)
+                rl_text = rl_font.render("RL", True, rl_color)
+                rl_text_rect = rl_text.get_rect(center=(cx, cy + 18))
+                self.screen.blit(rl_text, rl_text_rect)
         
         # Botão "Jogar"
         button_width = 300
@@ -1300,13 +1321,16 @@ class UIManager:
         Returns:
             "play" se clicou no botão Jogar, "toggle" se alternou player/IA, None caso contrário
         """
-        # Verifica clique nos ícones de player/IA
+        # Verifica clique nos ícones de player/IA/RL
         if hasattr(self, 'os_icon_rects'):
             for os_name, icon_rect in self.os_icon_rects.items():
                 if icon_rect.collidepoint(pos):
-                    # Alterna entre player e IA
-                    if self.os_control_mode[os_name] == "player":
+                    # Alterna entre player → IA → RL → player
+                    current = self.os_control_mode[os_name]
+                    if current == "player":
                         self.os_control_mode[os_name] = "ai"
+                    elif current == "ai":
+                        self.os_control_mode[os_name] = "rl"
                     else:
                         self.os_control_mode[os_name] = "player"
                     return "toggle"  # Indica que alternou
