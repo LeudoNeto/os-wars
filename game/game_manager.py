@@ -350,6 +350,12 @@ class GameManager:
     
     def _handle_right_click(self):
         """Trata clique com botão direito"""
+        # Não permite cancelar se já está em alguma etapa avançada do ataque
+        if (self.showing_enemy_selection or self.preparing_combat or 
+            self.showing_dice_animation or self.showing_dice_results or 
+            self.showing_combat_result):
+            return
+        
         # Se está na fase de ataque e há continente selecionado, cancela
         if self.turn_manager.is_attack_phase() and self.selected_attack_continent:
             self.selected_attack_continent = None
