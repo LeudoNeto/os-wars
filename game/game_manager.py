@@ -216,6 +216,11 @@ class GameManager:
             self._handle_main_menu_click(pos)
             return
         
+        # Ignora cliques durante turnos de IA ou RL
+        current_player = self.turn_manager.get_current_player()
+        if current_player.is_ai or current_player.is_rl:
+            return
+        
         # Se está mostrando confirmação de passar turno
         if self.showing_turn_confirmation:
             self._handle_turn_confirmation_click(pos)
@@ -1100,6 +1105,12 @@ class GameManager:
     
     def _handle_mouse_motion(self, pos):
         """Trata movimento do mouse"""
+        # Ignora hover durante turnos de IA ou RL
+        if not self.showing_main_menu:
+            current_player = self.turn_manager.get_current_player()
+            if current_player.is_ai or current_player.is_rl:
+                return
+        
         # Atualiza hover do botão
         self.ui_manager.update_button_hover(pos)
         
