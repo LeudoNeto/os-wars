@@ -221,6 +221,10 @@ class GameManager:
         if current_player.is_ai or current_player.is_rl:
             return
         
+        # Ignora cliques durante animação de dados
+        if self.showing_dice_animation:
+            return
+        
         # Se está mostrando confirmação de passar turno
         if self.showing_turn_confirmation:
             self._handle_turn_confirmation_click(pos)
@@ -1110,6 +1114,10 @@ class GameManager:
             current_player = self.turn_manager.get_current_player()
             if current_player.is_ai or current_player.is_rl:
                 return
+        
+        # Ignora hover durante animação de dados
+        if self.showing_dice_animation:
+            return
         
         # Atualiza hover do botão
         self.ui_manager.update_button_hover(pos)
