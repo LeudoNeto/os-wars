@@ -8,7 +8,7 @@ import random
 import math
 from game.models.player import Player
 from game.models.continent import Continent
-from game.models.event import get_random_event
+from game.models.event import get_random_event, get_events_sorted_by_date
 from game.logic.combat import CombatSystem
 from game.logic.turn_manager import TurnManager
 from game.ui.map_renderer import MapRenderer
@@ -22,7 +22,8 @@ from game.utils.constants import (
     PHASE_EVENT, BUTTON_X, BUTTON_Y, PLAYER_COLORS, CONTINENT_INFO_OFFSET,
     MUSIC_MENU, MUSIC_GAME, MUSIC_COMBAT,
     SOUND_CLICK, SOUND_DICE_ROLL, SOUND_CONQUEST, SOUND_ROULETTE,
-    ADJACENT_CONTINENTS
+    ADJACENT_CONTINENTS,
+    MODE_RANDOM, MODE_REALISTIC
 )
 from game.utils.helpers import (
     distribute_initial_control, calculate_total_control, apply_event
@@ -98,6 +99,13 @@ class GameManager:
         self.event_result = None  # Dados do resultado do evento
         self.event_finished = False  # Indica se o evento já terminou e aguarda "Passar Turno"
         self.showing_turn_confirmation = False  # Mostra confirmação de passar turno
+        
+        # Modo de jogo
+        self.game_mode = MODE_RANDOM
+        
+        # Modo Realista: controle de eventos
+        self.realistic_events_used = {"Windows": 0, "MacOS": 0, "Linux": 0}
+        self.realistic_events_sorted = {}  # Será populado ao iniciar o jogo
         
         # Preparação de combate
         self.preparing_combat = False
@@ -299,26 +307,34 @@ class GameManager:
             if self.selected_attack_continent:
                 self.selected_attack_continent = None
             else:
-                # Passa para fase de evento
-                self.turn_manager.skip_attack_phase()
-                self.selected_attack_continent = None
+                # No modo Realista sem eventos restantes, passa turno diretamente
+                if self.game_mode == MODE_REALISTIC and not self._has_remaining_events():
+                    self.showing_turn_confirmation = True
+                else:
+                    # Passa para fase de evento
+                    self.turn_manager.skip_attack_phase()
+                    self.selected_attack_continent = None
         
         elif self.turn_manager.is_event_phase():
             # Se o evento já terminou, mostra confirmação antes de passar o turno
             if self.event_finished:
                 self.showing_turn_confirmation = True
             else:
-                # Carrega eventos do jogador atual
-                current_player = self.turn_manager.get_current_player()
-                self.roulette.set_player_events(current_player.name)
-                
-                # Inicia roleta
-                self.showing_roulette = True
-                self.roulette.start_spin()
-                # Toca som da roleta (limitado a 3 segundos)
-                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
-                # Toca som da roleta (limitado a 3 segundos)
-                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
+                if self.game_mode == MODE_REALISTIC:
+                    # Aplica o evento determinístico diretamente
+                    self._apply_realistic_event()
+                else:
+                    # Carrega eventos do jogador atual
+                    current_player = self.turn_manager.get_current_player()
+                    self.roulette.set_player_events(current_player.name)
+                    
+                    # Inicia roleta
+                    self.showing_roulette = True
+                    self.roulette.start_spin()
+                    # Toca som da roleta (limitado a 3 segundos)
+                    self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
+                    # Toca som da roleta (limitado a 3 segundos)
+                    self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
     
     def _handle_turn_confirmation_click(self, pos):
         """Trata cliques na confirmação de passar turno"""
@@ -342,6 +358,8 @@ class GameManager:
         if action == "play":
             # Toca som de clique
             self.audio_manager.play_sound(SOUND_CLICK)
+            # Obtém modo de jogo do UI
+            self.game_mode = self.ui_manager.game_mode
             # Configura jogadores baseado no modo selecionado
             for player in self.players:
                 mode = self.ui_manager.os_control_mode[player.name]
@@ -349,6 +367,11 @@ class GameManager:
                 player.is_rl = (mode == "rl")
             # Inicializa agentes RL para jogadores com modo RL
             self._init_rl_agents()
+            # Se modo Realista, prepara eventos ordenados
+            if self.game_mode == MODE_REALISTIC:
+                for player_name in PLAYERS:
+                    self.realistic_events_sorted[player_name] = get_events_sorted_by_date(player_name)
+                self.realistic_events_used = {"Windows": 0, "MacOS": 0, "Linux": 0}
             # Inicia o jogo
             self.showing_main_menu = False
             # Muda para música do jogo
@@ -638,6 +661,55 @@ class GameManager:
         # Mostra resultado
         self.showing_event_result = True
     
+    def _has_remaining_events(self):
+        """Verifica se o jogador atual ainda tem eventos no modo Realista"""
+        if self.game_mode != MODE_REALISTIC:
+            return True
+        current_player = self.turn_manager.get_current_player()
+        return self.realistic_events_used.get(current_player.name, 0) < 6
+    
+    def _apply_realistic_event(self):
+        """Aplica o próximo evento cronológico no modo Realista (aplicado a todos os continentes)"""
+        current_player = self.turn_manager.get_current_player()
+        event_index = self.realistic_events_used[current_player.name]
+        
+        # Obtém evento ordenado por data
+        sorted_events = self.realistic_events_sorted[current_player.name]
+        event = sorted_events[event_index]
+        
+        # Calcula controle global ANTES do evento
+        global_before = {}
+        for player_name in PLAYERS:
+            global_before[player_name] = calculate_total_control(
+                {c.name: c.control for c in self.continents}, player_name
+            )
+        
+        # Aplica evento a TODOS os continentes
+        for continent in self.continents:
+            apply_event(continent.control, current_player.name, event.percentage)
+        
+        # Calcula controle global DEPOIS do evento
+        global_after = {}
+        for player_name in PLAYERS:
+            global_after[player_name] = calculate_total_control(
+                {c.name: c.control for c in self.continents}, player_name
+            )
+        
+        # Incrementa contador de eventos usados
+        self.realistic_events_used[current_player.name] += 1
+        
+        # Armazena resultado
+        self.event_result = {
+            'event': event,
+            'player': current_player.name,
+            'global_control_before': global_before,
+            'global_control_after': global_after,
+            'is_realistic': True
+        }
+        
+        # Mostra resultado
+        self.showing_event_result = True
+    
     def _next_turn(self):
         """Avança para o próximo turno"""
         self.turn_manager.next_turn()
@@ -787,11 +859,17 @@ class GameManager:
             if self.turn_manager.can_attack():
                 self._ai_execute_attack()
             else:
-                # Não tem mais ataques, passa para fase de evento
-                print(f"[IA-{current_player.name}] Sem mais ataques. Passando para fase de evento...")
-                self.audio_manager.play_sound(SOUND_CLICK)
-                self.turn_manager.skip_attack_phase()
-                self.selected_attack_continent = None
+                # Não tem mais ataques
+                if self.game_mode == MODE_REALISTIC and not self._has_remaining_events():
+                    # Sem eventos restantes, passa turno diretamente
+                    print(f"[IA-{current_player.name}] Sem mais ataques e sem eventos. Passando turno...")
+                    self.showing_turn_confirmation = True
+                else:
+                    # Passa para fase de evento
+                    print(f"[IA-{current_player.name}] Sem mais ataques. Passando para fase de evento...")
+                    self.audio_manager.play_sound(SOUND_CLICK)
+                    self.turn_manager.skip_attack_phase()
+                    self.selected_attack_continent = None
             return
         
         # Fase de evento
@@ -801,12 +879,17 @@ class GameManager:
                 print(f"[IA-{current_player.name}] Solicitando passar o turno...")
                 self.showing_turn_confirmation = True
             else:
-                # Executa evento
-                print(f"[IA-{current_player.name}] Iniciando roleta de eventos...")
-                self.roulette.set_player_events(current_player.name)
-                self.showing_roulette = True
-                self.roulette.start_spin()
-                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
+                if self.game_mode == MODE_REALISTIC:
+                    # Aplica evento determinístico diretamente
+                    print(f"[IA-{current_player.name}] Aplicando evento realista...")
+                    self._apply_realistic_event()
+                else:
+                    # Executa evento via roleta
+                    print(f"[IA-{current_player.name}] Iniciando roleta de eventos...")
+                    self.roulette.set_player_events(current_player.name)
+                    self.showing_roulette = True
+                    self.roulette.start_spin()
+                    self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
             return
     
     def _ai_execute_attack(self):
@@ -991,11 +1074,15 @@ class GameManager:
             if self.turn_manager.can_attack():
                 self._rl_decide_attack()
             else:
-                # Sem ataques, passa para fase de evento
-                print(f"[RL-{current_player.name}] Sem mais ataques. Passando para fase de evento...")
-                self.audio_manager.play_sound(SOUND_CLICK)
-                self.turn_manager.skip_attack_phase()
-                self.selected_attack_continent = None
+                # Sem ataques
+                if self.game_mode == MODE_REALISTIC and not self._has_remaining_events():
+                    print(f"[RL-{current_player.name}] Sem mais ataques e sem eventos. Passando turno...")
+                    self.showing_turn_confirmation = True
+                else:
+                    print(f"[RL-{current_player.name}] Sem mais ataques. Passando para fase de evento...")
+                    self.audio_manager.play_sound(SOUND_CLICK)
+                    self.turn_manager.skip_attack_phase()
+                    self.selected_attack_continent = None
             return
         
         # Fase de evento
@@ -1004,11 +1091,15 @@ class GameManager:
                 print(f"[RL-{current_player.name}] Solicitando passar o turno...")
                 self.showing_turn_confirmation = True
             else:
-                print(f"[RL-{current_player.name}] Iniciando roleta de eventos...")
-                self.roulette.set_player_events(current_player.name)
-                self.showing_roulette = True
-                self.roulette.start_spin()
-                self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
+                if self.game_mode == MODE_REALISTIC:
+                    print(f"[RL-{current_player.name}] Aplicando evento realista...")
+                    self._apply_realistic_event()
+                else:
+                    print(f"[RL-{current_player.name}] Iniciando roleta de eventos...")
+                    self.roulette.set_player_events(current_player.name)
+                    self.showing_roulette = True
+                    self.roulette.start_spin()
+                    self.audio_manager.play_sound_limited(SOUND_ROULETTE, 1200)
             return
     
     def _rl_decide_attack(self):
@@ -1203,6 +1294,9 @@ class GameManager:
         # Mostra botão apenas se não há hover em continente e não está em combate
         show_button = not (self.hovered_continent and not self.showing_combat_result) and not self.showing_combat_result
         
+        # Determina se a fase de evento deve ser ocultada (Realista sem eventos restantes)
+        no_event_phase = (self.game_mode == MODE_REALISTIC and not self._has_remaining_events())
+        
         self.ui_manager.render_bottom_panel(
             current_player,
             self.turn_manager.get_current_phase(),
@@ -1210,7 +1304,8 @@ class GameManager:
             total_control,
             show_button=show_button,
             event_finished=self.event_finished,
-            selected_attack_continent=self.selected_attack_continent
+            selected_attack_continent=self.selected_attack_continent,
+            no_event_phase=no_event_phase
         )
         
         # Gráfico de pizza se hover sobre continente
@@ -1292,6 +1387,10 @@ class GameManager:
         if self.showing_roulette:
             show_result = not self.roulette.is_spinning()
             self.roulette.render(show_result, self.event_result)
+        
+        # Resultado de evento realista (sem roleta)
+        elif self.showing_event_result and self.event_result and self.event_result.get('is_realistic'):
+            self.ui_manager.render_realistic_event_result(self.event_result)
         
         # Game Over
         if self.game_over and self.winner:

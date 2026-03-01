@@ -7,7 +7,8 @@ from game.utils.constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, WHITE, BLACK, GRAY, DARK_GRAY,
     PLAYER_INFO_X, PLAYER_INFO_Y, PHASE_DISPLAY_X, PHASE_DISPLAY_Y,
     BUTTON_X, BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
-    LOGO_SIZE, PHASE_ATTACK, PHASE_EVENT
+    LOGO_SIZE, PHASE_ATTACK, PHASE_EVENT,
+    MODE_RANDOM, MODE_REALISTIC
 )
 
 
@@ -40,10 +41,13 @@ class UIManager:
             "MacOS": "player",
             "Linux": "player"
         }
+        
+        # Modo de jogo
+        self.game_mode = MODE_RANDOM
     
     def render_bottom_panel(self, current_player, current_phase, attacks_info, 
                            total_control, show_button=True, event_finished=False,
-                           selected_attack_continent=None):
+                           selected_attack_continent=None, no_event_phase=False):
         """
         Renderiza o painel inferior com informações do jogo.
         
@@ -55,6 +59,7 @@ class UIManager:
             show_button: Se deve mostrar o botão
             event_finished: Se o evento já terminou (para mudar botão para "Passar Turno")
             selected_attack_continent: Continente selecionado para ataque (ou None)
+            no_event_phase: Se a fase de evento deve ser ocultada (Realista sem eventos)
         """
         # Não desenha mais o fundo preto/cinza
         
@@ -62,11 +67,11 @@ class UIManager:
         self._render_player_info(current_player, total_control, attacks_info, current_phase)
         
         # Fases (parte inferior, uma ao lado da outra)
-        self._render_phases(current_phase)
+        self._render_phases(current_phase, no_event_phase)
         
         # Botão (direita)
         if show_button:
-            self._render_button(current_phase, event_finished, selected_attack_continent)
+            self._render_button(current_phase, event_finished, selected_attack_continent, no_event_phase)
     
     def _render_player_info(self, player, total_control, attacks_info, current_phase):
         """Renderiza informações do jogador atual"""
@@ -103,17 +108,30 @@ class UIManager:
             attacks_rect = attacks_text.get_rect(topleft=(PLAYER_INFO_X - 40, PLAYER_INFO_Y + 140))
             self.screen.blit(attacks_text, attacks_rect)
     
-    def _render_phases(self, current_phase):
+    def _render_phases(self, current_phase, no_event_phase=False):
         """Renderiza as fases do turno na parte inferior"""
-        phases = [PHASE_ATTACK, PHASE_EVENT]
+        if no_event_phase:
+            phases = [PHASE_ATTACK]
+        else:
+            phases = [PHASE_ATTACK, PHASE_EVENT]
+        
+        # Labels de exibição (Realista mostra "Evento" ao invés de "Evento Aleatório")
+        display_labels = {
+            PHASE_ATTACK: PHASE_ATTACK,
+            PHASE_EVENT: "Evento" if self.game_mode == MODE_REALISTIC else PHASE_EVENT
+        }
         
         # Posição na parte inferior da tela, centralizadas horizontalmente
         y_pos = WINDOW_HEIGHT - 60
         spacing = 280  # Espaço entre as duas fases
         
-        # Centraliza horizontalmente: calcula posição inicial considerando o espaçamento
-        total_width = spacing  # Distância entre os centros das duas fases
-        start_x = (WINDOW_WIDTH // 2) - (spacing // 2)
+        if len(phases) == 1:
+            # Centraliza a única fase
+            start_x = WINDOW_WIDTH // 2
+            spacing = 0
+        else:
+            # Centraliza horizontalmente: calcula posição inicial considerando o espaçamento
+            start_x = (WINDOW_WIDTH // 2) - (spacing // 2)
         
         for i, phase in enumerate(phases):
             is_current = phase == current_phase
@@ -130,23 +148,29 @@ class UIManager:
             pygame.draw.rect(self.screen, bg_color, phase_rect)
             pygame.draw.rect(self.screen, color, phase_rect, 2)
             
-            # Texto da fase
-            phase_text = self.font_medium.render(phase, True, color)
+            # Texto da fase (usa label de exibição)
+            display_text = display_labels.get(phase, phase)
+            phase_text = self.font_medium.render(display_text, True, color)
             phase_text_rect = phase_text.get_rect(center=(x_pos, y_pos + 15))
             self.screen.blit(phase_text, phase_text_rect)
     
-    def _render_button(self, current_phase, event_finished=False, selected_attack_continent=None):
+    def _render_button(self, current_phase, event_finished=False, selected_attack_continent=None, no_event_phase=False):
         """Renderiza o botão de passar fase/turno ou cancelar ataque"""
         # Texto do botão baseado na fase e estado
         if current_phase == PHASE_ATTACK:
             if selected_attack_continent:
                 button_text = "Cancelar Ataque"
+            elif no_event_phase:
+                button_text = "Passar Turno"
             else:
                 button_text = "Passar Etapa"
         elif event_finished:
             button_text = "Passar Turno"
         else:
-            button_text = "Girar Roleta"
+            if self.game_mode == MODE_REALISTIC:
+                button_text = "Aplicar Evento"
+            else:
+                button_text = "Girar Roleta"
         
         # Cor baseada em hover
         button_color = WHITE if self.button_hovered else GRAY
@@ -1122,6 +1146,131 @@ class UIManager:
             return "no"
         return None
     
+    def _wrap_text(self, text, font, max_width):
+        """Quebra texto em múltiplas linhas para caber na largura máxima."""
+        words = text.split()
+        lines = []
+        current_line = ""
+        for word in words:
+            test_line = current_line + word + " "
+            if font.size(test_line)[0] <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line.strip())
+                current_line = word + " "
+        if current_line:
+            lines.append(current_line.strip())
+        return lines
+    
+    def render_realistic_event_result(self, event_result):
+        """Renderiza o resultado de evento do modo Realista com porcentagens globais."""
+        from game.utils.constants import PLAYERS, PLAYER_COLORS
+        
+        # Overlay escuro
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Painel central
+        panel_width = 1000
+        panel_height = 720
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, BLACK, panel_rect)
+        pygame.draw.rect(self.screen, WHITE, panel_rect, 3)
+        
+        y_offset = panel_y + 30
+        event = event_result['event']
+        
+        # Nome do evento
+        name_text = self.font_large.render(event.name, True, WHITE)
+        name_rect = name_text.get_rect(center=(panel_x + panel_width // 2, y_offset))
+        self.screen.blit(name_text, name_rect)
+        y_offset += 35
+        
+        # Data e label
+        label_color = (0, 255, 0) if event.percentage > 0 else (255, 0, 0)
+        date_str = event.formatted_date
+        dl_text = self.font_medium.render(f"{date_str}  |  {event.label}", True, label_color)
+        dl_rect = dl_text.get_rect(center=(panel_x + panel_width // 2, y_offset))
+        self.screen.blit(dl_text, dl_rect)
+        y_offset += 30
+        
+        # Linha divisora
+        pygame.draw.line(self.screen, GRAY, (panel_x + 40, y_offset), (panel_x + panel_width - 40, y_offset), 1)
+        y_offset += 12
+        
+        # Descrição (quebrada em linhas)
+        desc_lines = self._wrap_text(event.description, self.font_small, panel_width - 80)
+        for line in desc_lines:
+            line_text = self.font_small.render(line, True, GRAY)
+            line_rect = line_text.get_rect(midleft=(panel_x + 40, y_offset))
+            self.screen.blit(line_text, line_rect)
+            y_offset += 20
+        
+        y_offset += 8
+        
+        # Linha divisora
+        pygame.draw.line(self.screen, GRAY, (panel_x + 40, y_offset), (panel_x + panel_width - 40, y_offset), 1)
+        y_offset += 18
+        
+        # Cabeçalho de controle global
+        heading = self.font_medium.render("Controle Global", True, WHITE)
+        heading_rect = heading.get_rect(center=(panel_x + panel_width // 2, y_offset))
+        self.screen.blit(heading, heading_rect)
+        y_offset += 28
+        
+        # Cabeçalhos Antes/Depois
+        before_header = self.font_small.render("Antes", True, GRAY)
+        before_rect = before_header.get_rect(center=(panel_x + panel_width // 2 - 80, y_offset))
+        self.screen.blit(before_header, before_rect)
+        
+        after_header = self.font_small.render("Depois", True, GRAY)
+        after_rect = after_header.get_rect(center=(panel_x + panel_width // 2 + 80, y_offset))
+        self.screen.blit(after_header, after_rect)
+        y_offset += 25
+        
+        # Porcentagens globais por jogador
+        global_before = event_result['global_control_before']
+        global_after = event_result['global_control_after']
+        
+        for player_name in PLAYERS:
+            player_color = PLAYER_COLORS[player_name]
+            
+            # Nome do jogador
+            p_text = self.font_small.render(f"{player_name}:", True, player_color)
+            p_rect = p_text.get_rect(midleft=(panel_x + 100, y_offset))
+            self.screen.blit(p_text, p_rect)
+            
+            # Antes
+            before_val = self.font_small.render(f"{global_before[player_name]:.1f}%", True, WHITE)
+            before_val_rect = before_val.get_rect(center=(panel_x + panel_width // 2 - 80, y_offset))
+            self.screen.blit(before_val, before_val_rect)
+            
+            # Depois
+            after_val = self.font_small.render(f"{global_after[player_name]:.1f}%", True, WHITE)
+            after_val_rect = after_val.get_rect(center=(panel_x + panel_width // 2 + 80, y_offset))
+            self.screen.blit(after_val, after_val_rect)
+            
+            # Seta de mudança
+            change = global_after[player_name] - global_before[player_name]
+            if abs(change) >= 0.05:
+                arrow = "↑" if change > 0 else "↓"
+                change_color = (0, 255, 0) if change > 0 else (255, 0, 0)
+                change_text = self.font_small.render(f"{arrow} {abs(change):.1f}%", True, change_color)
+                change_rect = change_text.get_rect(midleft=(panel_x + panel_width // 2 + 140, y_offset))
+                self.screen.blit(change_text, change_rect)
+            
+            y_offset += 25
+        
+        # Instrução
+        instruction = self.font_small.render("Clique para continuar", True, WHITE)
+        instruction_rect = instruction.get_rect(center=(panel_x + panel_width // 2, panel_y + panel_height - 25))
+        self.screen.blit(instruction, instruction_rect)
+    
     def render_main_menu(self, map_surface=None):
         """Renderiza o menu principal
         
@@ -1156,6 +1305,41 @@ class UIManager:
             title_text = title_font.render("OS WARS", True, WHITE)
             title_rect = title_text.get_rect(center=(WINDOW_WIDTH // 2, 180))
             self.screen.blit(title_text, title_rect)
+        
+        # Seletor de modo de jogo
+        mode_y = 348
+        mode_label = self.font_medium.render("Modo:", True, WHITE)
+        mode_label_rect = mode_label.get_rect(midright=(WINDOW_WIDTH // 2 - 120, mode_y))
+        self.screen.blit(mode_label, mode_label_rect)
+        
+        btn_width = 150
+        btn_height = 36
+        btn_spacing = 20
+        aleatorio_x = WINDOW_WIDTH // 2 - btn_width - btn_spacing // 2 + 60
+        realista_x = WINDOW_WIDTH // 2 + btn_spacing // 2 + 60
+        
+        self.mode_aleatorio_rect = pygame.Rect(aleatorio_x, mode_y - btn_height // 2, btn_width, btn_height)
+        self.mode_realista_rect = pygame.Rect(realista_x, mode_y - btn_height // 2, btn_width, btn_height)
+        
+        # Botão Aleatório
+        is_aleatorio = self.game_mode == MODE_RANDOM
+        ale_bg = (0, 100, 150) if is_aleatorio else (30, 30, 50)
+        ale_border = WHITE if is_aleatorio else DARK_GRAY
+        pygame.draw.rect(self.screen, ale_bg, self.mode_aleatorio_rect)
+        pygame.draw.rect(self.screen, ale_border, self.mode_aleatorio_rect, 2)
+        ale_text = self.font_small.render("Aleatório", True, WHITE if is_aleatorio else GRAY)
+        ale_text_rect = ale_text.get_rect(center=self.mode_aleatorio_rect.center)
+        self.screen.blit(ale_text, ale_text_rect)
+        
+        # Botão Realista
+        is_realista = self.game_mode == MODE_REALISTIC
+        real_bg = (0, 100, 150) if is_realista else (30, 30, 50)
+        real_border = WHITE if is_realista else DARK_GRAY
+        pygame.draw.rect(self.screen, real_bg, self.mode_realista_rect)
+        pygame.draw.rect(self.screen, real_border, self.mode_realista_rect, 2)
+        real_text = self.font_small.render("Realista", True, WHITE if is_realista else GRAY)
+        real_text_rect = real_text.get_rect(center=self.mode_realista_rect.center)
+        self.screen.blit(real_text, real_text_rect)
         
         # Cards dos sistemas operacionais
         card_width = 350
@@ -1321,18 +1505,33 @@ class UIManager:
         Returns:
             "play" se clicou no botão Jogar, "toggle" se alternou player/IA, None caso contrário
         """
+        # Verifica clique nos botões de modo
+        if hasattr(self, 'mode_aleatorio_rect') and self.mode_aleatorio_rect.collidepoint(pos):
+            self.game_mode = MODE_RANDOM
+            return "toggle"
+        if hasattr(self, 'mode_realista_rect') and self.mode_realista_rect.collidepoint(pos):
+            self.game_mode = MODE_REALISTIC
+            # Reseta todos os jogadores para humano (RL não permitido no modo Realista)
+            for os_name in self.os_control_mode:
+                self.os_control_mode[os_name] = "player"
+            return "toggle"
+        
         # Verifica clique nos ícones de player/IA/RL
         if hasattr(self, 'os_icon_rects'):
             for os_name, icon_rect in self.os_icon_rects.items():
                 if icon_rect.collidepoint(pos):
-                    # Alterna entre player → IA → RL → player
                     current = self.os_control_mode[os_name]
-                    if current == "player":
-                        self.os_control_mode[os_name] = "ai"
-                    elif current == "ai":
-                        self.os_control_mode[os_name] = "rl"
+                    if self.game_mode == MODE_REALISTIC:
+                        # No modo Realista, alterna apenas entre player e IA (sem RL)
+                        self.os_control_mode[os_name] = "ai" if current == "player" else "player"
                     else:
-                        self.os_control_mode[os_name] = "player"
+                        # Alterna entre player → IA → RL → player
+                        if current == "player":
+                            self.os_control_mode[os_name] = "ai"
+                        elif current == "ai":
+                            self.os_control_mode[os_name] = "rl"
+                        else:
+                            self.os_control_mode[os_name] = "player"
                     return "toggle"  # Indica que alternou
         
         # Verifica clique no botão Jogar

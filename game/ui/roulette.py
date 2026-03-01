@@ -47,6 +47,23 @@ class Roulette:
             (230, 126, 34)    # Laranja
         ]
     
+    def _wrap_text(self, text, max_width):
+        """Quebra texto em múltiplas linhas para caber na largura máxima."""
+        words = text.split()
+        lines = []
+        current_line = ""
+        for word in words:
+            test_line = current_line + word + " "
+            if self.font_small.size(test_line)[0] <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line.strip())
+                current_line = word + " "
+        if current_line:
+            lines.append(current_line.strip())
+        return lines
+    
     def set_player_events(self, player_name):
         """Define os eventos para um jogador específico
         
@@ -199,10 +216,10 @@ class Roulette:
             return
         
         # Painel de resultado (maior para acomodar mais informações)
-        panel_width = 700
-        panel_height = 300
+        panel_width = 900
+        panel_height = 550
         panel_x = (WINDOW_WIDTH - panel_width) // 2
-        panel_y = WINDOW_HEIGHT - 330
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
         
         panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
         pygame.draw.rect(self.screen, BLACK, panel_rect)
@@ -220,15 +237,15 @@ class Roulette:
         self.screen.blit(name_text, name_rect)
         y_offset += 40
         
-        # Descrição
-        desc_text = self.font_small.render(
-            self.selected_event.description, True, GRAY
-        )
-        desc_rect = desc_text.get_rect(
-            center=(panel_x + panel_width//2, y_offset)
-        )
-        self.screen.blit(desc_text, desc_rect)
-        y_offset += 35
+        # Descrição (quebrada em múltiplas linhas)
+        desc_lines = self._wrap_text(self.selected_event.description, panel_width - 80)
+        for line in desc_lines:
+            line_text = self.font_small.render(line, True, GRAY)
+            line_rect = line_text.get_rect(midleft=(panel_x + 40, y_offset))
+            self.screen.blit(line_text, line_rect)
+            y_offset += 22
+        
+        y_offset += 15
         
         # Informações do continente afetado
         if event_result:
